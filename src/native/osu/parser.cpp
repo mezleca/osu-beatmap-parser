@@ -1,14 +1,13 @@
 #include <algorithm>
 #include <cstdio>
-#include <fstream>
 #include <iostream>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_set>
+#include <unordered_map>
 #include "./parser.hpp"
-#include "./definitions.hpp"
+#include "../definitions.hpp"
 
 const std::unordered_set<std::string_view> VIDEO_EXTENSIONS = {
     ".mp4", ".avi", ".flv", ".mov", ".wmv", ".m4v", ".mpg", ".mpeg"
@@ -45,32 +44,9 @@ std::vector<std::string_view> split_view(std::string_view s, char delim) {
         start = end + 1;
         end = s.find(delim, start);
     }
+
     result.push_back(s.substr(start));
-    
     return result;
-}
-
-std::vector<std::string> split(const std::string &s, char delim) {
-    std::vector<std::string> result;
-    std::stringstream ss(s);
-    std::string item;
-
-    while (getline(ss, item, delim)) {
-        result.push_back(item);
-    }
-
-    return result;
-}
-
-std::ifstream read_file(std::string &location) {
-#ifdef _WIN32
-    std::wstring wide_path = utf8_to_wide(location);
-    std::ifstream file(wide_path, std::ios::binary);
-    return file;
-#else
-    std::ifstream file(location);
-    return file;
-#endif
 }
 
 std::string normalize_path(const std::string &path) {
@@ -138,18 +114,9 @@ std::optional<std::string> get_special_key(std::string_view key, std::string_vie
     return std::nullopt;
 }
 
-std::string osu_parser::get_property(std::string &location, std::string &key) {
-    auto file = read_file(location);
-
-    if (!file.is_open()) {
-        std::cout << "failed to open: " << location << "\n";
-        return "";
-    }
-    
+std::string osu_parser::get_property(std::string_view content, std::string_view key) {
     bool is_special_key = SPECIAL_KEYS.count(key) > 0;
-
     std::string current_section;
-    std::string line;
     std::string special_section;
     
     if (is_special_key) {
@@ -159,10 +126,15 @@ std::string osu_parser::get_property(std::string &location, std::string &key) {
         }
         special_section = KEY_TO_SECTION.at(key);
     }
-    
-    while (getline(file, line)) {
-        std::string_view line_view = trim_view(line);
-        
+
+    size_t start = 0;
+    size_t end = content.find('\n');
+
+    while (end != std::string_view::npos) {
+        std::string_view line_view = trim_view(content.substr(start, end - start));
+        start = end + 1;
+        end = content.find('\n', start);
+
         if (line_view.empty() || line_view[0] == '/') {
             continue;
         }
@@ -193,17 +165,130 @@ std::string osu_parser::get_property(std::string &location, std::string &key) {
         }
         
         std::string_view current_key = trim_view(line_view.substr(0, delimiter_i));
-        
+
         if (current_key == key) {
             std::string_view value = trim_view(line_view.substr(delimiter_i + 1));
             return std::string(value);
         }
     }
     
+    // check last line if no newline at end
+    if (start < content.size()) {
+        std::string_view line_view = trim_view(content.substr(start));
+        if (line_view.empty() || line_view[0] == '/') {
+            return "";
+        }
+
+         // section change at end
+        if (line_view[0] == '[') {
+            return ""; 
+        }
+
+        if (is_special_key) {
+            if (special_section == current_section) {
+                auto result = get_special_key(key, line_view);
+                if (result.has_value()) {
+                    return result.value();
+                }
+            }
+            return "";
+        } 
+        
+        size_t delimiter_i = line_view.find(':');
+        
+        if (delimiter_i != std::string_view::npos) {
+            std::string_view current_key = trim_view(line_view.substr(0, delimiter_i));
+            if (current_key == key) {
+                std::string_view value = trim_view(line_view.substr(delimiter_i + 1));
+                return std::string(value);
+            }
+        }
+    }
+
     return "";
+}
+
+std::unordered_map<std::string, std::string> osu_parser::get_properties(std::string_view content, const std::vector<std::string>& keys) {
+    std::unordered_map<std::string, std::string> results;
+    std::unordered_map<std::string_view, std::string_view> key_to_section_map;
+    std::unordered_set<std::string_view> keys_to_find;
+    
+    for (const auto& key : keys) {
+        keys_to_find.insert(key);
+        if (KEY_TO_SECTION.count(key)) {
+            key_to_section_map[key] = KEY_TO_SECTION.at(key);
+        }
+    }
+
+    std::string current_section;
+    size_t start = 0;
+    size_t end = content.find('\n');
+
+    auto process_line = [&](std::string_view line_view) {
+        if (line_view.empty() || line_view[0] == '/') {
+            return;
+        }
+        
+        if (line_view[0] == '[') {
+            current_section = std::string(line_view);
+            return;
+        }
+        
+        size_t delimiter_i = line_view.find(':');
+        if (delimiter_i != std::string_view::npos) {
+            std::string_view current_key = trim_view(line_view.substr(0, delimiter_i));
+            
+            if (keys_to_find.count(current_key)) {
+                bool correct_section = !key_to_section_map.count(current_key) || 
+                                       key_to_section_map.at(current_key) == current_section;
+
+                bool not_found_yet = results.find(std::string(current_key)) == results.end();
+                
+                if (correct_section && not_found_yet) {
+                     std::string_view value = trim_view(line_view.substr(delimiter_i + 1));
+                     results[std::string(current_key)] = std::string(value);
+                }
+            }
+        }
+
+        for (const auto& key : keys) {
+            if (!SPECIAL_KEYS.count(key)) {
+                continue;
+            }
+            
+            if (results.find(key) != results.end()) {
+                continue;
+            }
+            
+            if (key_to_section_map.count(key) && key_to_section_map.at(key) == current_section) {
+                auto result = get_special_key(key, line_view);
+                if (result.has_value()) {
+                    results[key] = result.value();
+                }
+            }
+        }
+    };
+
+    while (end != std::string_view::npos) {
+        std::string_view line_view = trim_view(content.substr(start, end - start));
+        process_line(line_view);
+        start = end + 1;
+        end = content.find('\n', start);
+    }
+    
+    if (start < content.size()) {
+        std::string_view line_view = trim_view(content.substr(start));
+        process_line(line_view);
+    }
+
+    return results;
 }
 
 std::vector<std::string> osu_parser::get_section() {
     std::vector<std::string> result;
     return result;
+}
+
+std::map<std::string, std::string> osu_parser::parse(std::string_view content) {
+    return {};
 }

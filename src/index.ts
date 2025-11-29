@@ -1,24 +1,40 @@
-import fs from "fs";
-import path from "path";
-import processor from "../build/Release/osu-beatmap-parser.node";
+import native from "../build/Release/osu-beatmap-parser.node";
+import { OsuKey, OsuInput } from "./types";
 
-const TEST_LOCATION = "/home/rel/.local/share/osu-wine/osu!/Songs/";
+export function get_property(location: string, key: OsuKey): string {
+    return native.get_property(location, key);
+};
 
-(() => {
-    const files = fs.readdirSync(TEST_LOCATION, { recursive: true, withFileTypes: true })
-        .filter((f) => f.isFile())
-        .filter((f) => f.name.includes(".osu"));
-    
-    const result: string[] = [];
-    const start = performance.now();
+export function get_properties(input: string | OsuInput, keys: OsuKey[]): Record<OsuKey, string> & { id?: string } {
+    const location = typeof input === "string" ? input : input.path;
+    const result = native.get_properties(location, keys) as Record<OsuKey, string>;
 
-    for (const file of files) {
-        const location = path.join(file.parentPath, file.name);
-        result.push(processor.get_property(location, "Background"));
+    if (typeof input !== "string" && input.id) {
+        return { ...result, id: input.id };
     }
 
-    const end = performance.now();
-    console.log(`took ${end - start}ms to finish processing ${files.length} files`);
+    return result;
+};
 
-    fs.writeFileSync("result.json", JSON.stringify(result, null, 4));
-})();
+export async function process_beatmaps(inputs: (string | OsuInput)[], keys: OsuKey[]): Promise<(Record<OsuKey, string> & { id?: string })[]> {
+    const locations = inputs.map(i => typeof i === "string" ? i : i.path);
+    const results = await native.process_beatmaps(locations, keys) as Record<OsuKey, string>[];
+
+    return results.map((res, i) => {
+        const input = inputs[i];
+        if (typeof input !== "string" && input.id) {
+            return { ...res, id: input.id };
+        }
+        return res;
+    });
+};
+
+export function get_duration(location: string): number {
+    return native.get_duration(location);
+};
+
+export function get_audio_duration(location: string): number {
+    return native.get_audio_duration(location);
+};
+
+export { OsuKey, OsuInput };
