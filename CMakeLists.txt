@@ -44,9 +44,11 @@ target_link_libraries(
     sndfile
 )
 
-add_custom_target(copy_compile_commands ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+if(NOT DEFINED ENV{CI})
+    add_custom_target(copy_compile_commands ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_BINARY_DIR}/compile_commands.json
-        ${CMAKE_SOURCE_DIR}/compile_commands.json
-    DEPENDS ${CMAKE_BINARY_DIR}/compile_commands.json
-)
+        ${CMAKE_SOURCE_DIR}/compile_commands.json || ${CMAKE_COMMAND} -E true
+        DEPENDS ${CMAKE_BINARY_DIR}/compile_commands.json
+    )
+endif()
