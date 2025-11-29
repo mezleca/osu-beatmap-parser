@@ -1,7 +1,7 @@
 {
   "name": "osu-beatmap-parser",
   "version": "0.1.0",
-  "description": ".osu beatmap parser written in ts & c++",
+  "description": ".osu parser for nodejs",
   "main": "dist/index.js",
   "scripts": {
     "dev": "npm run build && node dist/verify.js",

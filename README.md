@@ -1,12 +1,9 @@
 ## osu-beatmap-parser
-a simple .osu beatmap parser written in ts & c++
+.osu parser for nodejs used by [osu-stuff](https://github.com/mezleca/osu-stuff)
 
 ## required (windows)
 - msvc
 
 ## required (linux)
 - gcc
-- cmake 
-
-# examples
-TODO
+- cmake
