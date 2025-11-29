@@ -1,0 +1,30 @@
+{
+  "name": "osu-beatmap-parser",
+  "version": "0.1.0",
+  "description": ".osu beatmap parser written in ts & c++",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "npm run build && node dist/index.js",
+    "build": "node ./scripts/build.js",
+    "cmake:help": "cmake-js help",
+    "build:tsc": "tsc",
+    "build:native": "cmake-js build",
+    "build:native:clean": "cmake-js rebuild",
+    "build:native:dev": "cmake-js build --debug",
+    "configure": "cmake-js configure"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "cmake-js": "^7.4.0",
+    "node-addon-api": "^8.5.0",
+    "node-gyp": "^12.1.0",
+    "typescript": "^5.9.3"
+  },
+  "binary": {
+    "napi_versions": [7]
+  }
+}
