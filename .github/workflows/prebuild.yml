@@ -16,11 +16,13 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - name: update submodules
+        run: git submodule update --remote --recursive
       
-      - name: initialize submodules
-        run: git submodule update --init --recursive
-      
-      - name: install system dependencies (Ubuntu)
+      - name: install system dependencies (ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
