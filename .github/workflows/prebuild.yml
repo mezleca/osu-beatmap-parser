@@ -19,10 +19,28 @@ jobs:
         with:
           submodules: recursive
       
+      - name: install system dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            libasound2-dev \
+            libflac-dev \
+            libvorbis-dev \
+            libopus-dev \
+            libmp3lame-dev \
+            libmpg123-dev
+      
       - name: setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      
+      - name: verify submodules
+        run: git submodule status
       
       - name: install dependencies
         run: npm install
