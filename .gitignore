@@ -3,7 +3,6 @@ imgui.ini
 .cache
 compile_commands.json
 external/
-vendor
 package-lock.json
 result.json
 node_modules
