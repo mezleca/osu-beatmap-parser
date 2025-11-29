@@ -16,8 +16,9 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      
+      - name: initialize submodules
+        run: git submodule update --init --recursive
       
       - name: install system dependencies (Ubuntu)
         if: runner.os == 'Linux'
@@ -38,9 +39,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      
-      - name: verify submodules
-        run: git submodule status
       
       - name: install dependencies
         run: npm install
