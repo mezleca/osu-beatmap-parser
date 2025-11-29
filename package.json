@@ -4,8 +4,8 @@
   "description": ".osu parser for nodejs",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "npm run build && node dist/verify.js",
-    "build": "node ./scripts/build.js",
+    "dev": "bun run build && node dist/verify.js",
+    "build": "bun ./scripts/build.ts",
     "cmake:help": "cmake-js help",
     "build:tsc": "tsc",
     "build:native": "cmake-js build",
