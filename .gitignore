@@ -6,7 +6,6 @@ external/
 package-lock.json
 result.json
 node_modules
-dist
 prebuilds/
 
 # Prerequisites

@@ -90,8 +90,8 @@ jobs:
           TAG_NAME=${GITHUB_REF#refs/tags/}
           gh release create "$TAG_NAME" \
             --repo="$GITHUB_REPOSITORY" \
-            --title="Release $TAG_NAME" \
-            --generate-notes || echo "Release already exists"
+            --title="$TAG_NAME" \
+            --generate-notes || echo "skipped"
       
       - name: upload prebuilds to release
         env:
