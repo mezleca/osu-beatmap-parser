@@ -1,10 +1,10 @@
 {
   "name": "osu-beatmap-parser",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": ".osu parser for nodejs",
   "main": "dist/index.js",
   "scripts": {
-    "install": "prebuild-install",
+    "install": "prebuild-install || npm run build",
     "dev": "bun run build && node dist/verify.js",
     "build": "bun ./scripts/build.ts",
     "prebuild": "prebuild --backend cmake-js --strip --verbose",
