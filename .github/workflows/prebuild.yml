@@ -27,6 +27,7 @@ jobs:
             build-essential \
             cmake \
             ninja-build \
+            libsndfile-dev \
             libasound2-dev \
             libflac-dev \
             libvorbis-dev \
