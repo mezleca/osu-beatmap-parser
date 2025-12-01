@@ -116,7 +116,7 @@ void process_chunk(BatchContext* context, size_t start, size_t end) {
                 std::string audio_file_name = osu_parser::get_property(content, "AudioFilename");
                 if (!audio_file_name.empty()) {
                     std::filesystem::path audio_path = dirname(context->paths[i]) / audio_file_name;
-                    double duration = audio_analizer.get_audio_duration(audio_path);
+                    double duration = audio_analizer.get_audio_duration(audio_path.string());
                     context->results[i]["Duration"] = std::to_string(duration);
                 }
             }
@@ -228,7 +228,7 @@ Napi::Value ParserAddon::get_duration(const Napi::CallbackInfo& info) {
     std::string audio_file_name = osu_parser::get_property(content, "AudioFilename");
     std::filesystem::path audio_path = dirname(location) / audio_file_name;
 
-    return Napi::Number::From(info.Env(), audio_analizer.get_audio_duration(audio_path));
+    return Napi::Number::From(info.Env(), audio_analizer.get_audio_duration(audio_path.string()));
 }
 
 Napi::Value ParserAddon::get_audio_duration(const Napi::CallbackInfo& info) {
@@ -243,7 +243,7 @@ Napi::Value ParserAddon::get_audio_duration(const Napi::CallbackInfo& info) {
     std::string location = info[0].As<Napi::String>().Utf8Value();
     std::filesystem::path audio_path(location);
 
-    return Napi::Number::From(info.Env(), audio_analizer.get_audio_duration(audio_path));
+    return Napi::Number::From(info.Env(), audio_analizer.get_audio_duration(audio_path.string()));
 }
 
 Napi::Value ParserAddon::test_promise(const Napi::CallbackInfo& info) {

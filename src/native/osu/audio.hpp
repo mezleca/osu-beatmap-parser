@@ -1,5 +1,4 @@
 #pragma once
-#include <filesystem>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -31,5 +30,5 @@ private:
         cache.clear();
     }
 public:
-    double get_audio_duration(std::filesystem::path &location);
+    double get_audio_duration(std::string location);
 };

@@ -2,7 +2,9 @@ import fs from "fs";
 import path from "path";
 import { process_beatmaps, get_property, get_duration } from "./index";
 
-const TEST_LOCATION = "/home/rel/.local/share/osu-wine/osu!/Songs/";
+const TEST_LOCATION = process.platform == "linux" ? 
+    "/home/rel/.local/share/osu-wine/osu!/Songs/" :
+    "C:\\Users\\rel\\AppData\\Local\\osu!";
 
 async function main() {
     const files = fs.readdirSync(TEST_LOCATION, { recursive: true, withFileTypes: true })
@@ -20,7 +22,7 @@ async function main() {
     }
 
     const start = performance.now();
-    const inputs = paths.map((p, i) => ({ path: p, id: `md5-${i}` }));
+    const inputs = paths.map((p, i) => ({ path: path.resolve(p), id: `md5-${i}` }));
     const results = await process_beatmaps(inputs, ["Title", "Artist", "Creator", "Duration"]);
     const end = performance.now();
 

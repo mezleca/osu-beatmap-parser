@@ -1,4 +1,18 @@
 cmake_minimum_required(VERSION 3.16)
+
+if(WIN32)
+    if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+        if(EXISTS "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake")
+            set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake" 
+                CACHE STRING "Vcpkg toolchain file")
+        elseif(EXISTS "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
+            set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                CACHE STRING "Vcpkg toolchain file")
+        endif()
+    endif()
+    set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "")
+endif()
+
 project(osu-beatmap-parser VERSION 0.0.1)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -7,12 +21,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(BUILD_TESTING OFF CACHE BOOL "Build tests" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 
-add_compile_definitions(NAPI_VERSION=7)
-
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/native/*.cpp")
 file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS "src/native/*.hpp")
 
-add_subdirectory(vendor/libsndfile)
+find_package(SndFile CONFIG REQUIRED)
 
 execute_process(
   COMMAND node -p "require('node-addon-api').include"
@@ -32,8 +44,14 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD_REQUIRED ON
 )
 
+if (MSVC)
+    set(MSVC_RUNTIME_LIBRARY OFF)
+    add_compile_definitions(_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING)
+    execute_process(COMMAND ${CMAKE_AR} /def:${CMAKE_JS_NODELIB_DEF} /out:${CMAKE_JS_NODELIB_TARGET} ${CMAKE_STATIC_LINKER_FLAGS})
+    target_compile_options(${PROJECT_NAME} PRIVATE /Zc:__cplusplus)
+endif()
+
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/libsndfile/include
     ${NODE_ADDON_API_DIR}
     ${CMAKE_JS_INC}
 )
@@ -41,14 +59,5 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(
     ${PROJECT_NAME} 
     ${CMAKE_JS_LIB}
-    sndfile
+    SndFile::sndfile
 )
-
-if(NOT DEFINED ENV{CI})
-    add_custom_target(copy_compile_commands ALL
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_BINARY_DIR}/compile_commands.json
-        ${CMAKE_SOURCE_DIR}/compile_commands.json || ${CMAKE_COMMAND} -E true
-        DEPENDS ${CMAKE_BINARY_DIR}/compile_commands.json
-    )
-endif()

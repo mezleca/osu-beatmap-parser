@@ -1,8 +1,9 @@
 #include <iostream>
+#include <filesystem>
 #include <sndfile.h>
 #include "audio.hpp"
 
-double AudioAnalyzer::get_audio_duration(std::filesystem::path &location) {
+double AudioAnalyzer::get_audio_duration(std::string location) {
     double duration = 0.0;
     
     if (get_cache(location, duration)) {

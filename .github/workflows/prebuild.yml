@@ -33,7 +33,19 @@ jobs:
             libopus-dev \
             libmp3lame-dev \
             libmpg123-dev
-      
+
+      - name: install system dependencies (windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja
+
+      - name: setup MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: install vcpkg dependencies
+        if: runner.os == 'Windows'
+        run: vcpkg install libsndfile[core,mpeg,external-libs]:x64-windows-static
+
       - name: setup Node.js
         uses: actions/setup-node@v6
         with:
