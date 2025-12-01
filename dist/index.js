@@ -8,14 +8,15 @@ exports.get_properties = get_properties;
 exports.process_beatmaps = process_beatmaps;
 exports.get_duration = get_duration;
 exports.get_audio_duration = get_audio_duration;
-const osu_beatmap_parser_node_1 = __importDefault(require("../build/Release/osu-beatmap-parser.node"));
+const bindings_1 = __importDefault(require("bindings"));
+const native = (0, bindings_1.default)("osu-beatmap-parser");
 function get_property(location, key) {
-    return osu_beatmap_parser_node_1.default.get_property(location, key);
+    return native.get_property(location, key);
 }
 ;
 function get_properties(input, keys) {
     const location = typeof input === "string" ? input : input.path;
-    const result = osu_beatmap_parser_node_1.default.get_properties(location, keys);
+    const result = native.get_properties(location, keys);
     if (typeof input !== "string" && input.id) {
         return { ...result, id: input.id };
     }
@@ -24,7 +25,7 @@ function get_properties(input, keys) {
 ;
 async function process_beatmaps(inputs, keys) {
     const locations = inputs.map(i => typeof i === "string" ? i : i.path);
-    const results = await osu_beatmap_parser_node_1.default.process_beatmaps(locations, keys);
+    const results = await native.process_beatmaps(locations, keys);
     return results.map((res, i) => {
         const input = inputs[i];
         if (typeof input !== "string" && input.id) {
@@ -35,10 +36,10 @@ async function process_beatmaps(inputs, keys) {
 }
 ;
 function get_duration(location) {
-    return osu_beatmap_parser_node_1.default.get_duration(location);
+    return native.get_duration(location);
 }
 ;
 function get_audio_duration(location) {
-    return osu_beatmap_parser_node_1.default.get_audio_duration(location);
+    return native.get_audio_duration(location);
 }
 ;
