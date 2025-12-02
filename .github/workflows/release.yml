@@ -73,7 +73,7 @@ jobs:
         run: npm install
       
       - name: build prebuild
-        run: npm run prebuild
+        run: npm run prebuild -- --no-upload
       
       - name: upload prebuild artifacts
         uses: actions/upload-artifact@v5
