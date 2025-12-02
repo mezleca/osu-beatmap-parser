@@ -15,3 +15,5 @@ scripts/
 result.json
 compile_commands.json
 *.log
+bun.lock
+bun.lockb
