@@ -72,8 +72,20 @@ jobs:
       - name: install dependencies
         run: bun install
       
-      - name: build prebuild
-        run: bun run prebuild -- --no-upload
+      - name: build native
+        run: bun run compile:native
+      
+      - name: prepare prebuilds
+        shell: bash
+        run: |
+          mkdir -p prebuilds
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            PLATFORM="win32-x64"
+          else
+            PLATFORM="linux-x64"
+          fi
+          mkdir -p prebuilds/$PLATFORM
+          cp build/Release/osu-beatmap-parser.node prebuilds/$PLATFORM/
       
       - name: upload prebuild artifacts
         uses: actions/upload-artifact@v5
@@ -90,11 +102,6 @@ jobs:
       contents: write
     
     steps:
-      - name: download all artifacts
-        uses: actions/download-artifact@v5
-        with:
-          path: all-prebuilds
-      
       - name: create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -104,16 +111,7 @@ jobs:
             --repo="$GITHUB_REPOSITORY" \
             --title="$TAG_NAME" \
             --generate-notes || echo "skipped"
-      
-      - name: upload prebuilds to release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          find all-prebuilds -name "*.tar.gz" -type f | while read file; do
-            echo "Uploading $file"
-            gh release upload "$TAG_NAME" "$file" --repo="$GITHUB_REPOSITORY" --clobber
-          done
+
 
   publish:
     needs: release
@@ -141,6 +139,12 @@ jobs:
       - name: install dependencies
         run: bun install --ignore-scripts
       
+      - name: download prebuilds
+        uses: actions/download-artifact@v5
+        with:
+          path: prebuilds
+          merge-multiple: true
+
       - name: build typescript
         run: bun run compile:tsc
       

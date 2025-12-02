@@ -1,7 +1,8 @@
-import bindings from "bindings";
+import nodeGypBuild from "node-gyp-build";
 import { OsuKey, OsuInput, INativeExporter } from "./types";
+import path from "path";
 
-const native = bindings("osu-beatmap-parser") as INativeExporter;
+const native = nodeGypBuild(path.join(__dirname, "..")) as INativeExporter;
 
 
 export function get_property(location: string, key: OsuKey): string {
