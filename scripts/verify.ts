@@ -23,7 +23,7 @@ async function main() {
 
     const start = performance.now();
     const inputs = paths.map((p, i) => ({ path: path.resolve(p), id: `md5-${i}` }));
-    const results = await process_beatmaps(inputs, ["Title", "Artist", "Creator", "Duration"], console.log);
+    const results = await process_beatmaps(inputs, ["Title", "Artist", "Background", "Creator", "Duration"], console.log);
     const end = performance.now();
 
     console.log(`processed ${results.length} files in ${end - start}ms!`);

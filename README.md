@@ -14,3 +14,7 @@ npm install osu-beatmap-parser
 npm install
 npm run compile
 ```
+
+## TODO
+- [ ] native: handle "Storyboard" key
+- [ ] native: handle beatmap file version
