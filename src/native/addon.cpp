@@ -92,7 +92,14 @@ Napi::Value ParserAddon::get_properties(const Napi::CallbackInfo& info) {
     }
     
     return obj;
-}
+};
+
+struct CallbackContext {
+    Napi::ThreadSafeFunction tsfn;
+    std::atomic<size_t> current_index = 0;
+
+    CallbackContext() {}
+};
 
 struct BatchContext {
     std::vector<std::string> paths;
@@ -100,6 +107,7 @@ struct BatchContext {
     std::vector<std::unordered_map<std::string, std::string>> results;
     std::atomic<size_t> completed_count{0};
     Napi::ThreadSafeFunction tsfn;
+    CallbackContext *callback_ctx;
     Napi::Promise::Deferred deferred;
     bool needs_duration = false;
     
@@ -107,6 +115,8 @@ struct BatchContext {
 };
 
 void process_chunk(BatchContext* context, size_t start, size_t end) {
+    auto callback_ctx = context->callback_ctx;
+
     for (size_t i = start; i < end; i++) {
         std::string content = read_file(context->paths[i]);
         if (!content.empty()) {
@@ -120,13 +130,30 @@ void process_chunk(BatchContext* context, size_t start, size_t end) {
                     context->results[i]["Duration"] = std::to_string(duration);
                 }
             }
+
+            // only increment and call if file was actually processed
+            if (callback_ctx != nullptr) {
+                size_t current = callback_ctx->current_index.fetch_add(1) + 1;
+                callback_ctx->tsfn.NonBlockingCall([current](Napi::Env env, Napi::Function js_callback) {
+                    js_callback.Call({
+                        Napi::Number::New(env, static_cast<double>(current))
+                    });
+                });
+            }
         }
     }
     
     size_t completed = context->completed_count.fetch_add(end - start) + (end - start);
     
+    // last thread to finish resolves
     if (completed == context->paths.size()) {
-        auto callback = [context](Napi::Env env, Napi::Function jsCallback) {
+        // release callback
+        if (context->callback_ctx != nullptr) {
+            context->callback_ctx->tsfn.Release();
+        }
+
+        // then resolve the promise
+        context->tsfn.BlockingCall([context](Napi::Env env, Napi::Function) {
             Napi::Array result_array = Napi::Array::New(env, context->results.size());
             
             for (size_t i = 0; i < context->results.size(); i++) {
@@ -138,9 +165,8 @@ void process_chunk(BatchContext* context, size_t start, size_t end) {
             }
             
             context->deferred.Resolve(result_array);
-        };
+        });
         
-        context->tsfn.BlockingCall(callback);
         context->tsfn.Release();
     }
 }
@@ -171,8 +197,27 @@ Napi::Value ParserAddon::process_beatmaps(const Napi::CallbackInfo& info) {
         }
     }
     
+    if (info[2].IsFunction()) {
+        Napi::Function callback_fn = info[2].As<Napi::Function>();
+        auto callback_ctx = new CallbackContext();
+
+        callback_ctx = new CallbackContext();
+        callback_ctx->tsfn = Napi::ThreadSafeFunction::New(
+            callback_fn.Env(),
+            callback_fn,
+            "ProcessBeatmapsUpdate",
+            0,
+            1,
+            [callback_ctx](Napi::Env) {
+                delete callback_ctx;
+            }
+        );
+
+        context->callback_ctx = callback_ctx;
+    }
+
     context->results.resize(context->paths.size());
-    
+
     context->tsfn = Napi::ThreadSafeFunction::New(
         env,
         NOOP_FUNC(env),

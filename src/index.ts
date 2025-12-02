@@ -20,9 +20,11 @@ export function get_properties(input: string | OsuInput, keys: OsuKey[]): Record
     return result;
 };
 
-export async function process_beatmaps(inputs: (string | OsuInput)[], keys: OsuKey[]): Promise<(Record<OsuKey, string> & { id?: string })[]> {
+export async function process_beatmaps(
+    inputs: (string | OsuInput)[], keys: OsuKey[], update_fn?: (index: number) => void
+): Promise<(Record<OsuKey, string> & { id?: string })[]> {
     const locations = inputs.map(i => typeof i === "string" ? i : i.path);
-    const results = await native.process_beatmaps(locations, keys) as Record<OsuKey, string>[];
+    const results = await native.process_beatmaps(locations, keys, update_fn) as Record<OsuKey, string>[];
 
     return results.map((res, i) => {
         const input = inputs[i];

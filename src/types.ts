@@ -42,7 +42,7 @@ export interface OsuInput {
 export interface INativeExporter {
     get_property(location: string, key: string): string;
     get_properties(location: string, keys: string[]): Record<string, string>;
-    process_beatmaps(locations: string[], keys: string[]): Promise<Record<string, string>[]>;
+    process_beatmaps(locations: string[], keys: string[], callback?: (index: number) => void): Promise<Record<string, string>[]>;
     get_duration(location: string): number;
     get_audio_duration(location: string): number;
 }
