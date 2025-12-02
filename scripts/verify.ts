@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
-import { process_beatmaps, get_property, get_duration } from "./index";
+import { process_beatmaps, get_property, get_duration } from "../src/index";
 
-const TEST_LOCATION = process.platform == "linux" ? 
+const TEST_LOCATION = process.platform == "linux" ?
     "/home/rel/.local/share/osu-wine/osu!/Songs/" :
     "C:\\Users\\rel\\AppData\\Local\\osu!";
 

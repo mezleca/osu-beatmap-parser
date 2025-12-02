@@ -1,9 +1,16 @@
 ## osu-beatmap-parser
+
 .osu parser for nodejs used by [osu-stuff](https://github.com/mezleca/osu-stuff)
 
-## required (windows)
-- msvc
+## installation
 
-## required (linux)
-- gcc
-- cmake
+```bash
+npm install osu-beatmap-parser
+```
+
+## development
+
+```bash
+npm install
+npm run compile
+```

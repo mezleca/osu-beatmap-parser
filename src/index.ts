@@ -1,7 +1,8 @@
 import bindings from "bindings";
-import { OsuKey, OsuInput } from "./types";
+import { OsuKey, OsuInput, INativeExporter } from "./types";
 
-const native = bindings("osu-beatmap-parser");
+const native = bindings("osu-beatmap-parser") as INativeExporter;
+
 
 export function get_property(location: string, key: OsuKey): string {
     return native.get_property(location, key);

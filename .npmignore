@@ -1,0 +1,14 @@
+src/
+build/
+node_modules/
+vcpkg/
+.github/
+.git/
+.gitignore
+.cache/
+.env
+tsconfig.json
+scripts/
+result.json
+compile_commands.json
+*.log

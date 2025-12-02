@@ -1,27 +1,28 @@
 {
   "name": "osu-beatmap-parser",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": ".osu parser for nodejs",
   "main": "dist/index.js",
+  "homepage": "https://github.com/mezleca/osu-beatmap-parser",
   "scripts": {
-    "install": "prebuild-install || npm run build",
-    "dev": "bun run build && node dist/verify.js",
-    "build": "bun ./scripts/build.ts",
-    "prebuild": "prebuild --backend cmake-js --strip --verbose",
-    "prebuild:upload": "prebuild --backend cmake-js --upload",
-    "cmake:help": "cmake-js help",
-    "build:tsc": "tsc",
-    "build:native": "cmake-js build",
-    "build:native:clean": "cmake-js rebuild",
-    "build:native:dev": "cmake-js build --debug",
-    "configure": "cmake-js configure"
+    "install": "prebuild-install || npm run compile",
+    "dev": "npm run compile:native && tsx scripts/verify.ts",
+    "compile": "npm run compile:native && npm run compile:tsc",
+    "compile:tsc": "tsc",
+    "compile:native": "cmake-js build",
+    "prebuild": "prebuild --backend cmake-js --strip --verbose"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "repository": {
-    "type": "git",
     "url": "https://github.com/mezleca/osu-beatmap-parser.git"
+  },
+  "binary": {
+    "module_name": "osu-beatmap-parser",
+    "module_path": "./build/Release/",
+    "host": "https://github.com/mezleca/osu-beatmap-parser/releases/download/",
+    "remote_path": "{version}"
   },
   "type": "commonjs",
   "dependencies": {
@@ -33,8 +34,8 @@
     "@types/node": "^24.10.1",
     "cmake-js": "^7.4.0",
     "node-addon-api": "^8.5.0",
-    "node-gyp": "^12.1.0",
     "prebuild": "^13.0.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }
