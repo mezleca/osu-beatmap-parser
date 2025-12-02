@@ -1,5 +1,5 @@
 {
-  "name": "osu-beatmap-parser",
+  "name": "@mezleca/osu-beatmap-parser",
   "version": "0.1.7",
   "description": ".osu parser for nodejs",
   "main": "dist/index.js",

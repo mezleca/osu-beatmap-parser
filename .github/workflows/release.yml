@@ -70,10 +70,10 @@ jobs:
           bun-version: latest
       
       - name: install dependencies
-        run: npm install
+        run: bun install
       
       - name: build prebuild
-        run: npm run prebuild -- --no-upload
+        run: bun run prebuild -- --no-upload
       
       - name: upload prebuild artifacts
         uses: actions/upload-artifact@v5
@@ -133,11 +133,16 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
       
+      - name: setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      
       - name: install dependencies
-        run: npm install --ignore-scripts
+        run: bun install --ignore-scripts
       
       - name: build typescript
-        run: npm run compile:tsc
+        run: bun run compile:tsc
       
       - name: publish to npm
         run: npm publish --provenance --access public
