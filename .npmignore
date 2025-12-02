@@ -1,4 +1,7 @@
-src/
+src/**/*.ts
+!src/native/
+!src/types.ts
+
 build/
 node_modules/
 vcpkg/

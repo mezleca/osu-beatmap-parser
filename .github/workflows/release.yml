@@ -133,13 +133,8 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
       
-      - name: setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      
       - name: install dependencies
-        run: npm install
+        run: npm install --ignore-scripts
       
       - name: build typescript
         run: npm run compile:tsc
