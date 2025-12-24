@@ -1,8 +1,7 @@
 #include "./parser.hpp"
 #include "../definitions.hpp"
+#include "../log.hpp"
 #include <algorithm>
-#include <cstdio>
-#include <iostream>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -103,7 +102,7 @@ std::optional<std::string> get_special_key(std::string_view key, std::string_vie
 
         return normalize_path(std::string(filename));
     } else if (key == "Storyboard") {
-        // TODO:
+        LOG_LINE("TODO");
         return std::nullopt;
     }
 
@@ -118,7 +117,7 @@ std::string osu_parser::get_property(std::string_view content, std::string_view 
     if (is_special_key) {
         std::string key_str(key);
         if (KEY_TO_SECTION.find(key_str) == KEY_TO_SECTION.end()) {
-            std::cout << "failed to find special key: " << key << "\n";
+            LOG_LINE("failed to find special key:", key);
             return "";
         }
         special_section = KEY_TO_SECTION.at(key_str);
@@ -172,6 +171,7 @@ std::string osu_parser::get_property(std::string_view content, std::string_view 
     // check last line if no newline at end
     if (start < content.size()) {
         std::string_view line_view = trim_view(content.substr(start));
+
         if (line_view.empty() || line_view[0] == '/') {
             return "";
         }

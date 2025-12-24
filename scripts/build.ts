@@ -7,7 +7,10 @@ const TARGET_DIR = "build";
 
 const execute_raw = (bin_name: string, arg_list: string[]) => {
     console.log(`\nexecuting: ${bin_name} ${arg_list.join(" ")}`);
-    const proc_res = spawnSync(bin_name, arg_list, { stdio: "inherit", shell: true });
+    const proc_res = spawnSync(bin_name, arg_list, {
+        stdio: "inherit",
+        shell: true,
+    });
 
     if (proc_res.status != 0) {
         process.exit(proc_res.status || 1);
@@ -16,7 +19,11 @@ const execute_raw = (bin_name: string, arg_list: string[]) => {
 
 const remove_dir = (dir_path: string) => {
     if (fs.existsSync(dir_path)) {
-        fs.rmSync(dir_path, { recursive: true, force: true });
+        try {
+            fs.rmSync(dir_path, { recursive: true, force: true });
+        } catch (e: any) {
+            console.warn(`[warn] could not remove ${dir_path}: ${e.message}`);
+        }
     }
 };
 
@@ -33,7 +40,10 @@ const compile_native = () => {
 
     for (const bin_file of BIN_NAMES) {
         if (fs.existsSync(bin_file)) {
-            fs.copyFileSync(bin_file, path.join(TARGET_DIR, "osu-beatmap-parser.node"));
+            fs.copyFileSync(
+                bin_file,
+                path.join(TARGET_DIR, "osu-beatmap-parser.node")
+            );
             return;
         }
     }
@@ -49,7 +59,7 @@ const compile_wasm = () => {
     execute_raw("emcmake", ["cmake", "-S", ".", "-B", TMP_WASM, "-G", "Ninja"]);
     execute_raw("cmake", ["--build", TMP_WASM]);
 
-    const BUNDLE_FILES = ["osu-beatmap-parser.js", "osu-beatmap-parser.wasm"];
+    const BUNDLE_FILES = ["osu-beatmap-parser.js"];
 
     for (const name_str of BUNDLE_FILES) {
         const full_source = path.join(TMP_WASM, name_str);

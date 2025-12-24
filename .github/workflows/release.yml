@@ -166,8 +166,8 @@ jobs:
       - name: organize prebuilds
         run: |
           mkdir -p prebuilds build
-          mv prebuilds-tmp/prebuilds-win32-x64 prebuilds/win32-x64 || true
-          mv prebuilds-tmp/prebuilds-linux-x64 prebuilds/linux-x64 || true
+          mv prebuilds-tmp/prebuilds-win32-x64 prebuilds/ || true
+          mv prebuilds-tmp/prebuilds-linux-x64 prebuilds/ || true
           mv prebuilds-tmp/prebuilds-wasm/* build/ || true
 
       - name: build typescript

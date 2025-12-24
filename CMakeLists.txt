@@ -22,14 +22,19 @@ if(EMSCRIPTEN)
 
     target_link_options(${PROJECT_NAME} PRIVATE
         --bind
-        -sEXPORTED_FUNCTIONS=['_malloc','_free']
-        -sEXPORTED_RUNTIME_METHODS=['HEAPU8']
+        "-sEXPORTED_FUNCTIONS=['_malloc','_free']"
+        "-sEXPORTED_RUNTIME_METHODS=['HEAPU8']"
         -sALLOW_MEMORY_GROWTH=1
         -sMODULARIZE=1
         -sEXPORT_NAME='create_osu_parser'
+        -sSINGLE_FILE=1
+        "-sENVIRONMENT=['web','worker','node']"
+        -sSTRICT=1
+        -sFILESYSTEM=0
+        -Oz
     )
 
-    target_compile_options(${PROJECT_NAME} PRIVATE -O3 -flto)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Oz -flto)
 else()
     add_library(${PROJECT_NAME} SHARED "src/native/addon.cpp" ${COMMON_SOURCES} ${COMMON_HEADERS})
     set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
