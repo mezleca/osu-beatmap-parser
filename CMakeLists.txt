@@ -1,68 +1,66 @@
 cmake_minimum_required(VERSION 3.16)
 
-if(WIN32)
-    if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-        if(EXISTS "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake")
-            set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake")
-        elseif(EXISTS "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
-            set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
-        endif()
-    endif()
-    set(VCPKG_TARGET_TRIPLET "x64-windows-static")
+if(WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_CXX_COMPILER "C:/Program Files/LLVM/bin/clang-cl.exe")
+    set(CMAKE_LINKER "C:/Program Files/LLVM/bin/lld-link.exe")
+    set(CMAKE_MT "C:/Program Files/LLVM/bin/llvm-mt.exe")
+    set(CMAKE_RC_COMPILER "C:/Program Files/LLVM/bin/llvm-rc.exe")
 endif()
 
-project(osu-beatmap-parser VERSION 0.0.1)
+project(osu-beatmap-parser VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(BUILD_TESTING OFF CACHE BOOL "Build tests" FORCE)
-set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries")
 
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/native/*.cpp")
-file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS "src/native/*.hpp")
+file(GLOB_RECURSE COMMON_SOURCES CONFIGURE_DEPENDS "src/native/osu/*.cpp")
+file(GLOB_RECURSE COMMON_HEADERS CONFIGURE_DEPENDS "src/native/*.hpp")
 
-if(WIN32)
-    find_package(SndFile CONFIG REQUIRED)
-    set(SNDFILE_LIBRARIES SndFile::sndfile)
+if(EMSCRIPTEN)
+    add_executable(${PROJECT_NAME} "src/native/wasm.cpp" ${COMMON_SOURCES} ${COMMON_HEADERS})
+    set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".js")
+
+    target_link_options(${PROJECT_NAME} PRIVATE
+        --bind
+        -sEXPORTED_FUNCTIONS=['_malloc','_free']
+        -sEXPORTED_RUNTIME_METHODS=['HEAPU8']
+        -sALLOW_MEMORY_GROWTH=1
+        -sMODULARIZE=1
+        -sEXPORT_NAME='create_osu_parser'
+    )
+
+    target_compile_options(${PROJECT_NAME} PRIVATE -O3 -flto)
 else()
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(SNDFILE REQUIRED sndfile)
+    add_library(${PROJECT_NAME} SHARED "src/native/addon.cpp" ${COMMON_SOURCES} ${COMMON_HEADERS})
+    set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
+
+    execute_process(
+        COMMAND node -p "require('node-addon-api').include"
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE NODE_ADDON_API_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    string(REPLACE "\"" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
+
+    target_include_directories(${PROJECT_NAME} PRIVATE ${NODE_ADDON_API_DIR} ${CMAKE_JS_INC})
+    target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB})
+    target_compile_definitions(${PROJECT_NAME} PRIVATE NODE_ADDON_API_CPP_EXCEPTIONS)
+
+    # windows-specific linker flag
+    if(WIN32)
+        target_link_libraries(${PROJECT_NAME} delayimp.lib)
+    endif()
+
+    # clang-cl needs /EHsc for exception handling
+    if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(${PROJECT_NAME} PRIVATE /EHsc)
+    endif()
 endif()
 
-execute_process(
-  COMMAND node -p "require('node-addon-api').include"
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE NODE_ADDON_API_DIR
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-string(REPLACE "\"" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
-
-add_library(${PROJECT_NAME} SHARED ${SOURCES} ${HEADERS} ${CMAKE_JS_SRC})
-
-set_target_properties(${PROJECT_NAME} PROPERTIES 
-    PREFIX "" 
-    SUFFIX ".node"
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-)
-
-if (MSVC)
-    set(MSVC_RUNTIME_LIBRARY OFF)
-    add_compile_definitions(_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING)
-    execute_process(COMMAND ${CMAKE_AR} /def:${CMAKE_JS_NODELIB_DEF} /out:${CMAKE_JS_NODELIB_TARGET} ${CMAKE_STATIC_LINKER_FLAGS})
-    target_compile_options(${PROJECT_NAME} PRIVATE /Zc:__cplusplus)
-endif()
-
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${NODE_ADDON_API_DIR}
-    ${CMAKE_JS_INC}
-    ${SNDFILE_INCLUDE_DIRS}
-)
-
-target_link_libraries(
-    ${PROJECT_NAME} 
-    ${CMAKE_JS_LIB}
-    ${SNDFILE_LIBRARIES}
+# copy compile_commands.json
+add_custom_target(copy_compile_commands ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_BINARY_DIR}/compile_commands.json
+    ${CMAKE_SOURCE_DIR}/compile_commands.json
 )

@@ -1,46 +1,19 @@
-import nodeGypBuild from "node-gyp-build";
-import { OsuKey, OsuInput, INativeExporter } from "./types";
-import path from "path";
+import { OsuKey, OsuInput } from "./types";
+import { native } from "./lib/bindings";
 
-const native = nodeGypBuild(path.join(__dirname, "..")) as INativeExporter;
-
-
-export function get_property(location: string, key: OsuKey): string {
-    return native.get_property(location, key);
+export const get_property = (data: Uint8Array, key: OsuKey) => {
+    return native.get_property(data, key);
 };
 
-export function get_properties(input: string | OsuInput, keys: OsuKey[]): Record<OsuKey, string> & { id?: string } {
-    const location = typeof input === "string" ? input : input.path;
-    const result = native.get_properties(location, keys) as Record<OsuKey, string>;
+export const get_properties = (input: Uint8Array | OsuInput, keys: OsuKey[]) => {
+    const data = input instanceof Uint8Array ? input : input.data;
+    const result = native.get_properties(data, keys);
 
-    if (typeof input !== "string" && input.id) {
+    if (!(input instanceof Uint8Array) && input.id) {
         return { ...result, id: input.id };
     }
 
     return result;
-};
-
-export async function process_beatmaps(
-    inputs: (string | OsuInput)[], keys: OsuKey[], update_fn?: (index: number) => void
-): Promise<(Record<OsuKey, string> & { id?: string })[]> {
-    const locations = inputs.map(i => typeof i === "string" ? i : i.path);
-    const results = await native.process_beatmaps(locations, keys, update_fn) as Record<OsuKey, string>[];
-
-    return results.map((res, i) => {
-        const input = inputs[i];
-        if (typeof input !== "string" && input.id) {
-            return { ...res, id: input.id };
-        }
-        return res;
-    });
-};
-
-export function get_duration(location: string): number {
-    return native.get_duration(location);
-};
-
-export function get_audio_duration(location: string): number {
-    return native.get_audio_duration(location);
 };
 
 export { OsuKey, OsuInput };

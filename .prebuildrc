@@ -1,6 +1,0 @@
-{
-  "upload": "gh release upload {tag_name} {file_path} --repo={owner}/{repo} --clobber",
-  "download": "https://github.com/{owner}/{repo}/releases/download/{tag}/{file_name}",
-  "tag-prefix": "v",
-  "backend": "cmake-js"
-}

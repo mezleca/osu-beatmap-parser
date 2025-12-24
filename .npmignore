@@ -1,6 +1,7 @@
-src/**/*.ts
-!src/native/
-!src/types.ts
+src/
+build/
+!build/*.wasm
+.github/
 
 build/
 node_modules/

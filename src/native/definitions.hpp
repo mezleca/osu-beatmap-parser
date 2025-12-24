@@ -1,7 +1,8 @@
 #pragma once
 #include <string>
-#include <unordered_set>
+#include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 
 enum OSU_SECTIONS {
     General = 0,
@@ -14,7 +15,7 @@ enum OSU_SECTIONS {
     HitObjects
 };
 
-const std::unordered_map<std::string_view, std::string_view> KEY_TO_SECTION = {
+inline const std::unordered_map<std::string, std::string> KEY_TO_SECTION = {
     {"AudioFilename", "[General]"},
     {"AudioLeadIn", "[General]"},
     {"PreviewTime", "[General]"},
@@ -45,12 +46,9 @@ const std::unordered_map<std::string_view, std::string_view> KEY_TO_SECTION = {
     {"ApproachRate", "[Difficulty]"},
     {"SliderMultiplier", "[Difficulty]"},
     {"SliderTickRate", "[Difficulty]"},
-    // special ones (doenst have keys)
     {"Background", "[Events]"},
     {"Video", "[Events]"},
     {"Storyboard", "[Events]"},
-    // extra special ones (why not)
-    {"Duration", "[General]"}
 };
 
-const std::unordered_set<std::string_view> SPECIAL_KEYS {"Background", "Video", "Storyboard"};
+inline const std::unordered_set<std::string> SPECIAL_KEYS{"Background", "Video", "Storyboard"};

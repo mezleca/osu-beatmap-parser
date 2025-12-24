@@ -6,19 +6,38 @@
   "types": "dist/index.d.ts",
   "homepage": "https://github.com/mezleca/osu-beatmap-parser",
   "scripts": {
-    "dev": "npm run compile:native && tsx scripts/verify.ts",
-    "compile": "npm run compile:native && npm run compile:tsc",
+    "update:patch": "bun run format && npm version patch && git push --follow-tags",
+    "update:minor": "bun run format && npm version minor && git push --follow-tags",
+    "update:major": "bun run format && npm version major && git push --follow-tags",
+    "prepublishOnly": "npm run compile:tsc && mkdir -p lib",
+    "compile:native": "tsx scripts/build.ts native",
+    "compile:wasm": "tsx scripts/build.ts wasm",
     "compile:tsc": "tsc",
-    "compile:native": "cmake-js build",
-    "prebuild": "prebuild --backend cmake-js --strip --verbose"
+    "build": "tsx scripts/build.ts all && npm run compile:tsc",
+    "example:wasm": "bun run compile:wasm && bun run examples/wasm/server.ts",
+    "example:node": "bun run compile:native && tsx examples/node/index.ts"
   },
-  "keywords": [],
+  "keywords": [
+    "osu",
+    "beatmap",
+    "parser",
+    "native"
+  ],
   "author": "",
   "license": "ISC",
   "repository": {
     "url": "https://github.com/mezleca/osu-beatmap-parser.git"
   },
   "type": "commonjs",
+  "files": [
+    "dist/",
+    "prebuilds/",
+    "build/*.node",
+    "build/*.wasm",
+    "build/*.js",
+    "lib/bindings.ts",
+    "README.md"
+  ],
   "devDependencies": {
     "@types/bindings": "^1.5.5",
     "@types/node": "^24.10.1",
@@ -27,7 +46,6 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
-  "dependencies": {
-    "node-gyp-build": "^4.8.4"
-  }
+  "dependencies": {},
+  "optionalDependencies": {}
 }

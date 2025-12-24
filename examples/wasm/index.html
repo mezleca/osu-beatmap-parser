@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WASM Example</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        .node {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+
+        #status {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>OSU Beatmap Parser WASM Example</h1>
+
+    <div id="status">loading wasm...</div>
+    <div id="results"></div>
+
+    <script src="../../build/osu-beatmap-parser.js"></script>
+    <script>
+        let parser_inst = null;
+
+        const log_status = (msg, color = "black") => {
+            const el = document.getElementById("status");
+            el.innerText = msg;
+            el.style.color = color;
+        };
+
+        const parse_file = async (name) => {
+            if (!parser_inst) return;
+
+            try {
+                const res = await fetch(name);
+                const buf = await res.arrayBuffer();
+                const data_arr = new Uint8Array(buf);
+
+                const mem_ptr = parser_inst._malloc(data_arr.length);
+                parser_inst.HEAPU8.set(data_arr, mem_ptr);
+
+                const title = parser_inst.get_property(mem_ptr, data_arr.length, "Title");
+                const artist = parser_inst.get_property(mem_ptr, data_arr.length, "Artist");
+
+                parser_inst._free(mem_ptr);
+
+                const div = document.createElement("div");
+                div.className = "node";
+                div.innerText = `File: ${name}\nTitle: ${title}\nArtist: ${artist}`;
+                document.getElementById("results").appendChild(div);
+            } catch (err) {
+                console.error(`fail load ${name}:`, err);
+            }
+        };
+
+        const init_wasm = async () => {
+            try {
+                if (typeof create_osu_parser != "function") {
+                    log_status("error: create_osu_parser not found", "red");
+                    return;
+                }
+
+                parser_inst = await create_osu_parser();
+                log_status("wasm loaded!", "green");
+
+                await parse_file("1.osu");
+                await parse_file("2.osu");
+            } catch (e) {
+                log_status("fail load wasm: " + e.message, "red");
+            }
+        };
+
+        init_wasm();
+    </script>
+</body>
+
+</html>
