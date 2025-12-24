@@ -6,9 +6,9 @@
   "types": "dist/index.d.ts",
   "homepage": "https://github.com/mezleca/osu-beatmap-parser",
   "scripts": {
-    "update:patch": "bun run format && npm version patch && git push --follow-tags",
-    "update:minor": "bun run format && npm version minor && git push --follow-tags",
-    "update:major": "bun run format && npm version major && git push --follow-tags",
+    "update:patch": "npm version patch && git push --follow-tags",
+    "update:minor": "npm version minor && git push --follow-tags",
+    "update:major": "npm version major && git push --follow-tags",
     "prepublishOnly": "npm run compile:tsc && mkdir -p lib",
     "compile:native": "tsx scripts/build.ts native",
     "compile:wasm": "tsx scripts/build.ts wasm",
