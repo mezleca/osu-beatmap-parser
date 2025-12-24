@@ -38,8 +38,8 @@ const load_native_module = () => {
                     data.length,
                     keys,
                 );
-                was
-                m_inst._free(buffer_ptr);
+
+                wasm_inst._free(buffer_ptr);
                 return results_obj;
             },
         };
