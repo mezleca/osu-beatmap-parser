@@ -4,7 +4,7 @@ native .osu beatmap parser used on [osu-stuff](https://github.com/mezleca/osu-st
 ## installation
 
 ```bash
-npm install osu-beatmap-parser
+npm install @rel-packages/osu-beatmap-parser
 ```
 
 ## usage
