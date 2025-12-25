@@ -14,8 +14,8 @@
     "compile:wasm": "tsx scripts/build.ts wasm",
     "compile:tsc": "tsc",
     "build": "tsx scripts/build.ts all && npm run compile:tsc",
-    "example:wasm": "bun run compile:wasm && bun run examples/wasm/server.ts",
-    "example:node": "bun run compile:native && tsx examples/node/index.ts"
+    "example:wasm": "bun run compile:wasm && bun x http-server . -p 8080 -c-1 -o /examples/wasm/",
+    "example:node": "bun run compile:node && bun run examples/node/index.ts"
   },
   "keywords": [
     "osu",
@@ -32,10 +32,6 @@
   "files": [
     "dist/",
     "prebuilds/",
-    "build/*.node",
-    "build/*.wasm",
-    "build/*.js",
-    "lib/bindings.ts",
     "README.md"
   ],
   "devDependencies": {

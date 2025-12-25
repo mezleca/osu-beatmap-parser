@@ -1,14 +1,14 @@
 import { OsuKey, OsuInput } from "./types";
-import { native, init_wasm } from "./lib/bindings";
+import { native } from "./lib/bindings";
 
-export const get_property = (data: Uint8Array, key: OsuKey) => {
+export const get_property = (data: Uint8Array, key: OsuKey): string => {
     return native.get_property(data, key);
 };
 
 export const get_properties = (
     input: Uint8Array | OsuInput,
     keys: OsuKey[]
-) => {
+): Record<string, string> => {
     const data = input instanceof Uint8Array ? input : input.data;
     const result = native.get_properties(data, keys);
 
@@ -19,4 +19,4 @@ export const get_properties = (
     return result;
 };
 
-export { OsuKey, OsuInput, init_wasm };
+export { OsuKey, OsuInput };

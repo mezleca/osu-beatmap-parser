@@ -38,7 +38,7 @@ jobs:
             - name: Install LLVM and Clang
               uses: KyleMayes/install-llvm-action@v2
               with:
-                  version: "19.1.1"
+                  version: "20.1.0"
 
             - name: setup Node.js
               uses: actions/setup-node@v6
@@ -99,12 +99,12 @@ jobs:
               run: bun run compile:wasm
 
             - name: upload wasm artifacts
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
-                  name: prebuilds-wasm
+                  name: wasm-build
                   path: |
-                      build/*.wasm
-                      build/*.js
+                      build/osu-parser.browser.js
+                      build/osu-beatmap-parser.js
                   retention-days: 7
 
     release:
@@ -117,24 +117,46 @@ jobs:
             - name: checkout
               uses: actions/checkout@v6
 
-            - name: download all artifacts
+            - name: download native artifacts
               uses: actions/download-artifact@v5
               with:
                   path: artifacts
 
-            - name: create release
+            - name: prepare release assets
+              run: |
+                  mkdir -p release-assets
+
+                  # native prebuilds
+                  if [ -d "artifacts/prebuilds-win32-x64" ]; then
+                      cp artifacts/prebuilds-win32-x64/osu-beatmap-parser.node release-assets/osu-beatmap-parser-win32-x64.node
+                  fi
+                  if [ -d "artifacts/prebuilds-linux-x64" ]; then
+                      cp artifacts/prebuilds-linux-x64/osu-beatmap-parser.node release-assets/osu-beatmap-parser-linux-x64.node
+                  fi
+
+                  # wasm builds (bundled + raw emscripten)
+                  if [ -d "artifacts/wasm-build" ]; then
+                      cp artifacts/wasm-build/osu-parser.browser.js release-assets/ || true
+                      cp artifacts/wasm-build/osu-beatmap-parser.js release-assets/ || true
+                  fi
+
+                  ls -la release-assets/
+
+            - name: create github release
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   TAG_NAME=${GITHUB_REF#refs/tags/}
+
+                  # create release with assets
                   gh release create "$TAG_NAME" \
                     --repo="$GITHUB_REPOSITORY" \
                     --title="$TAG_NAME" \
                     --generate-notes \
-                    artifacts/**/* || echo "skipped"
+                    release-assets/*
 
     publish:
-        needs: release
+        needs: [prebuild-native, prebuild-wasm]
         if: startsWith(github.ref, 'refs/tags/')
         runs-on: ubuntu-latest
         permissions:
@@ -165,10 +187,19 @@ jobs:
 
             - name: organize prebuilds
               run: |
-                  mkdir -p prebuilds/win32-x64 prebuilds/linux-x64 build
-                  mv prebuilds-tmp/prebuilds-win32-x64/* prebuilds/win32-x64/ || true
-                  mv prebuilds-tmp/prebuilds-linux-x64/* prebuilds/linux-x64/ || true
-                  mv prebuilds-tmp/prebuilds-wasm/* build/ || true
+                  mkdir -p prebuilds/win32-x64 prebuilds/linux-x64
+
+                  # copy native prebuilds only (no wasm for npm)
+                  if [ -d "prebuilds-tmp/prebuilds-win32-x64" ]; then
+                      cp prebuilds-tmp/prebuilds-win32-x64/* prebuilds/win32-x64/
+                  fi
+                  
+                  if [ -d "prebuilds-tmp/prebuilds-linux-x64" ]; then
+                      cp prebuilds-tmp/prebuilds-linux-x64/* prebuilds/linux-x64/
+                  fi
+
+                  echo "prebuilds structure:"
+                  find prebuilds -type f
 
             - name: build typescript
               run: bun run compile:tsc
