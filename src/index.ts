@@ -1,4 +1,4 @@
-import { OsuKey, OsuInput } from "./types";
+import { OsuKey, OsuInput, OsuFileFormat } from "./types/types";
 import { native } from "./lib/bindings";
 
 export const get_property = (data: Uint8Array, key: OsuKey): string => {
@@ -19,4 +19,14 @@ export const get_properties = (
     return result;
 };
 
-export type { OsuKey, OsuInput };
+export const get_section = (data: Uint8Array, section: string): string[] => {
+    return native.get_section(data, section);
+};
+
+export const parse = (input: Uint8Array | OsuInput): OsuFileFormat => {
+    const data = input instanceof Uint8Array ? input : input.data;
+    return native.parse(data);
+};
+
+export type { OsuKey, OsuInput, OsuFileFormat };
+export * from "./types/types";

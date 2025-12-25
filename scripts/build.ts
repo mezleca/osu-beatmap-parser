@@ -1,5 +1,4 @@
-import { spawnSync } from "child_process";
-
+import {spawnSync} from "child_process";
 import fs from "fs";
 import path from "path";
 
@@ -10,8 +9,8 @@ const execute_raw = (bin_name: string, arg_list: string[]) => {
     console.log(`\nexecuting: ${full_cmd}`);
 
     const proc_res = spawnSync(full_cmd, {
-        stdio: "inherit",
-        shell: true,
+        stdio : "inherit",
+        shell : true,
     });
 
     if (proc_res.status != 0) {
@@ -22,7 +21,7 @@ const execute_raw = (bin_name: string, arg_list: string[]) => {
 const remove_dir = (dir_path: string) => {
     if (fs.existsSync(dir_path)) {
         try {
-            fs.rmSync(dir_path, { recursive: true, force: true });
+            fs.rmSync(dir_path, {recursive : true, force : true});
         } catch (e: any) {
             console.warn(`[warn] could not remove ${dir_path}: ${e.message}`);
         }
@@ -33,7 +32,7 @@ const compile_native = () => {
     const TMP_NATIVE = path.join(TARGET_DIR, "native-tmp");
 
     remove_dir(TMP_NATIVE);
-    execute_raw("cmake-js", ["build", "-G", "Ninja", "--out", TMP_NATIVE]);
+    execute_raw("cmake-js", [ "build", "-G", "Ninja", "--out", TMP_NATIVE ]);
 
     const BIN_NAMES = [
         path.join(TMP_NATIVE, "osu-beatmap-parser.node"),
@@ -43,10 +42,7 @@ const compile_native = () => {
     for (const bin_file of BIN_NAMES) {
         if (fs.existsSync(bin_file)) {
             // copy to build/
-            fs.copyFileSync(
-                bin_file,
-                path.join(TARGET_DIR, "osu-beatmap-parser.node")
-            );
+            fs.copyFileSync(bin_file, path.join(TARGET_DIR, "osu-beatmap-parser.node"));
 
             // copy to prebuilds for node-gyp-build
             const platform = process.platform;
@@ -54,13 +50,10 @@ const compile_native = () => {
             const prebuilds_dir = path.join("prebuilds", `${platform}-${arch}`);
 
             if (!fs.existsSync(prebuilds_dir)) {
-                fs.mkdirSync(prebuilds_dir, { recursive: true });
+                fs.mkdirSync(prebuilds_dir, {recursive : true});
             }
 
-            fs.copyFileSync(
-                bin_file,
-                path.join(prebuilds_dir, "osu-beatmap-parser.node")
-            );
+            fs.copyFileSync(bin_file, path.join(prebuilds_dir, "osu-beatmap-parser.node"));
 
             console.log(`\ncopied binary to ${prebuilds_dir}`);
             return;
@@ -75,8 +68,8 @@ const compile_wasm = () => {
 
     remove_dir(TMP_WASM);
 
-    execute_raw("emcmake", ["cmake", "-S", ".", "-B", TMP_WASM, "-G", "Ninja"]);
-    execute_raw("cmake", ["--build", TMP_WASM]);
+    execute_raw("emcmake", [ "cmake", "-S", ".", "-B", TMP_WASM, "-G", "Ninja" ]);
+    execute_raw("cmake", [ "--build", TMP_WASM ]);
 
     const emscripten_js = path.join(TMP_WASM, "osu-beatmap-parser.js");
 
@@ -85,10 +78,7 @@ const compile_wasm = () => {
         process.exit(1);
     }
 
-    fs.copyFileSync(
-        emscripten_js,
-        path.join(TARGET_DIR, "osu-beatmap-parser.js")
-    );
+    fs.copyFileSync(emscripten_js, path.join(TARGET_DIR, "osu-beatmap-parser.js"));
 
     // bundle wrapper with bun
     console.log("\nbundling wasm wrapper...");
@@ -118,10 +108,7 @@ const compile_wasm = () => {
 
     const final_bundle = `${emscripten_code};${wrapper_code};`;
 
-    fs.writeFileSync(
-        path.join(TARGET_DIR, "osu-parser.browser.js"),
-        final_bundle
-    );
+    fs.writeFileSync(path.join(TARGET_DIR, "osu-parser.browser.js"), final_bundle);
 
     console.log("\nwasm bundle created: build/osu-parser.browser.js");
 };

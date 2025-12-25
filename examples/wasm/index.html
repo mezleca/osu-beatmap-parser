@@ -24,6 +24,11 @@
                 font-family: monospace;
             }
 
+            .section {
+                color: #00d9ff;
+                margin-top: 15px;
+            }
+
             #status {
                 font-weight: bold;
                 margin-bottom: 10px;
@@ -48,9 +53,9 @@
                 console.log(`[STATUS] ${msg}`);
             };
 
-            const add_result = (content) => {
+            const add_result = (content, is_section = false) => {
                 const div = document.createElement("div");
-                div.className = "node";
+                div.className = is_section ? "node section" : "node";
                 div.innerText = content;
                 document.getElementById("results")?.appendChild(div);
             };
@@ -61,10 +66,17 @@
                     const buf = await res.arrayBuffer();
                     const data = new Uint8Array(buf);
 
+                    // simple property test
                     const title = beatmap_parser.get_property(data, "Title");
                     const artist = beatmap_parser.get_property(data, "Artist");
 
-                    add_result(`${name}: ${title} - ${artist}`);
+                    add_result(`${name}: ${title} - ${artist}`, true);
+
+                    // full parse
+                    const parsed = beatmap_parser.parse(data);
+
+                    // fuck it
+                    add_result(JSON.stringify(parsed, null, 4));
                 } catch (err) {
                     console.error(err);
                     add_result(`error ${name}: ${err.message}`);
