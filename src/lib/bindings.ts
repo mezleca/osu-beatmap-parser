@@ -1,7 +1,7 @@
 import nodeGypBuild from "node-gyp-build";
 import path from "path";
 
-import { INativeExporter } from "../types";
+import { INativeExporter } from "../types/types";
 
 const native = nodeGypBuild(
     path.join(__dirname, "..", "..")

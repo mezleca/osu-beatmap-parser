@@ -1,6 +1,6 @@
 console.log("[parser] wrapper loaded");
 
-import type { OsuFileFormat } from "../types";
+import type { OsuFileFormat } from "../types/types";
 
 let wasm_instance: any = null;
 let init_promise: Promise<void> | null = null;
