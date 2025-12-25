@@ -1,11 +1,8 @@
-#include "addon.hpp"
 #include "osu/parser.hpp"
 #include <napi.h>
 #include <string>
 
-#define NOOP_FUNC(env) Napi::Function::New(env, [](const Napi::CallbackInfo& info) {})
-
-Napi::Value ParserAddon::get_property(const Napi::CallbackInfo& info) {
+Napi::Value get_property(const Napi::CallbackInfo &info) {
     if (info.Length() < 2) {
         return Napi::String::New(info.Env(), "");
     }
@@ -21,7 +18,7 @@ Napi::Value ParserAddon::get_property(const Napi::CallbackInfo& info) {
     return Napi::String::New(info.Env(), osu_parser::get_property(content, key));
 }
 
-Napi::Value ParserAddon::get_properties(const Napi::CallbackInfo& info) {
+Napi::Value get_properties(const Napi::CallbackInfo &info) {
     if (info.Length() < 2) {
         return Napi::Object::New(info.Env());
     }
@@ -37,7 +34,7 @@ Napi::Value ParserAddon::get_properties(const Napi::CallbackInfo& info) {
     for (uint32_t i = 0; i < keys_array.Length(); i++) {
         Napi::Value val = keys_array[i];
         if (val.IsString()) {
-            keys.push_back(val.As<Napi::String>().Utf8Value());
+        keys.push_back(val.As<Napi::String>().Utf8Value());
         }
     }
 
@@ -51,6 +48,14 @@ Napi::Value ParserAddon::get_properties(const Napi::CallbackInfo& info) {
     }
 
     return obj;
-};
+}
 
-NODE_API_ADDON(ParserAddon)
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+  exports.Set(Napi::String::New(env, "get_property"),
+              Napi::Function::New(env, get_property));
+  exports.Set(Napi::String::New(env, "get_properties"),
+              Napi::Function::New(env, get_properties));
+  return exports;
+}
+
+NODE_API_MODULE(osu_beatmap_parser, Init)

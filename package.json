@@ -15,7 +15,7 @@
     "compile:tsc": "tsc",
     "build": "tsx scripts/build.ts all && npm run compile:tsc",
     "example:wasm": "bun run compile:wasm && bun x http-server . -p 8080 -c-1 -o /examples/wasm/",
-    "example:node": "bun run compile:node && bun run examples/node/index.ts"
+    "example:node": "bun run compile:native && bun run examples/node/index.ts"
   },
   "keywords": [
     "osu",
@@ -42,6 +42,8 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
-  "dependencies": {},
+  "dependencies": {
+    "node-gyp-build": "^4.8.4"
+  },
   "optionalDependencies": {}
 }

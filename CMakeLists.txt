@@ -7,7 +7,7 @@ if(WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     set(CMAKE_RC_COMPILER "C:/Program Files/LLVM/bin/llvm-rc.exe")
 endif()
 
-project(osu-beatmap-parser VERSION 0.2.0 LANGUAGES CXX)
+project(osu-beatmap-parser VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -36,7 +36,7 @@ if(EMSCRIPTEN)
 
     target_compile_options(${PROJECT_NAME} PRIVATE -Oz -flto)
 else()
-    add_library(${PROJECT_NAME} SHARED "src/native/addon.cpp" ${COMMON_SOURCES} ${COMMON_HEADERS})
+    add_library(${PROJECT_NAME} SHARED "src/native/addon.cpp" ${COMMON_SOURCES} ${COMMON_HEADERS} ${CMAKE_JS_SRC})
     set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 
     execute_process(

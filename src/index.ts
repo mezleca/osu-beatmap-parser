@@ -19,4 +19,4 @@ export const get_properties = (
     return result;
 };
 
-export { OsuKey, OsuInput };
+export type { OsuKey, OsuInput };

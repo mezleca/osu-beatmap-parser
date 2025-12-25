@@ -6,8 +6,10 @@ import path from "path";
 const TARGET_DIR = "build";
 
 const execute_raw = (bin_name: string, arg_list: string[]) => {
-    console.log(`\nexecuting: ${bin_name} ${arg_list.join(" ")}`);
-    const proc_res = spawnSync(bin_name, arg_list, {
+    const full_cmd = `${bin_name} ${arg_list.join(" ")}`;
+    console.log(`\nexecuting: ${full_cmd}`);
+
+    const proc_res = spawnSync(full_cmd, {
         stdio: "inherit",
         shell: true,
     });
@@ -40,10 +42,27 @@ const compile_native = () => {
 
     for (const bin_file of BIN_NAMES) {
         if (fs.existsSync(bin_file)) {
+            // copy to build/
             fs.copyFileSync(
                 bin_file,
                 path.join(TARGET_DIR, "osu-beatmap-parser.node")
             );
+
+            // copy to prebuilds for node-gyp-build
+            const platform = process.platform;
+            const arch = process.arch;
+            const prebuilds_dir = path.join("prebuilds", `${platform}-${arch}`);
+
+            if (!fs.existsSync(prebuilds_dir)) {
+                fs.mkdirSync(prebuilds_dir, { recursive: true });
+            }
+
+            fs.copyFileSync(
+                bin_file,
+                path.join(prebuilds_dir, "osu-beatmap-parser.node")
+            );
+
+            console.log(`\ncopied binary to ${prebuilds_dir}`);
             return;
         }
     }

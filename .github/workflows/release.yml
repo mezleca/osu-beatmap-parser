@@ -104,7 +104,6 @@ jobs:
                   name: wasm-build
                   path: |
                       build/osu-parser.browser.js
-                      build/osu-beatmap-parser.js
                   retention-days: 7
 
     release:
@@ -137,7 +136,6 @@ jobs:
                   # wasm builds (bundled + raw emscripten)
                   if [ -d "artifacts/wasm-build" ]; then
                       cp artifacts/wasm-build/osu-parser.browser.js release-assets/ || true
-                      cp artifacts/wasm-build/osu-beatmap-parser.js release-assets/ || true
                   fi
 
                   ls -la release-assets/
@@ -193,7 +191,7 @@ jobs:
                   if [ -d "prebuilds-tmp/prebuilds-win32-x64" ]; then
                       cp prebuilds-tmp/prebuilds-win32-x64/* prebuilds/win32-x64/
                   fi
-                  
+
                   if [ -d "prebuilds-tmp/prebuilds-linux-x64" ]; then
                       cp prebuilds-tmp/prebuilds-linux-x64/* prebuilds/linux-x64/
                   fi
