@@ -1,6 +1,10 @@
 import { native } from "./lib/bindings";
 import type {
     BeatmapKey,
+    BeatmapParseManyField,
+    BeatmapParseManyItem,
+    BeatmapParseManyProgress,
+    BeatmapMediaInfo,
     BeatmapUpdate,
     OsdbData,
     OsdbKey,
@@ -33,6 +37,7 @@ const resolve_fns = (prefix: string) => {
         parse: n[`${prefix}_parse`] as (handle: bigint, location: string) => Promise<boolean>,
         write: n[`${prefix}_write`] as (handle: bigint) => Promise<boolean>,
         get: n[`${prefix}_get`] as (handle: bigint) => unknown,
+        get_media: n[`${prefix}_get_media`] as ((handle: bigint) => unknown) | undefined,
         last_error: n[`${prefix}_last_error`] as (handle: bigint) => string | null,
         get_by_name: n[`${prefix}_get_by_name`] as ((handle: bigint, key: string) => unknown) | undefined,
         get_header: n[`${prefix}_get_header`] as ((handle: bigint) => unknown) | undefined,
@@ -115,6 +120,15 @@ class Parser<TGet> {
         }
     }
 
+    [Symbol.dispose](): void {
+        this.free();
+    }
+
+    [Symbol.asyncDispose](): Promise<void> {
+        this.free();
+        return Promise.resolve();
+    }
+
     protected assert_handle() {
         if (this.handle === 0n) {
             throw new Error("parser handle is not valid");
@@ -153,6 +167,43 @@ export class BeatmapParser extends UpdatableParser<OsuFileFormat, BeatmapKey, Be
     constructor() {
         super("beatmap_parser");
     }
+
+    static parse_many(
+        paths: string[],
+        fields: BeatmapParseManyField[] = ["media"],
+        on_progress?: (progress: BeatmapParseManyProgress) => void
+    ): Promise<BeatmapParseManyItem[]> {
+        if (!Array.isArray(paths)) {
+            throw new TypeError("paths must be an array");
+        }
+
+        if (!Array.isArray(fields)) {
+            throw new TypeError("fields must be an array");
+        }
+
+        return native.beatmap_parser_parse_many(paths, fields, on_progress);
+    }
+
+    get_media(): BeatmapMediaInfo {
+        this.assert_handle();
+
+        if (!this.fns.get_media) {
+            throw new Error(`${this.prefix}.get_media not implemented`);
+        }
+
+        const value = this.fns.get_media(this.handle) as BeatmapMediaInfo | null;
+
+        if (!value) {
+            return {
+                AudioFilename: "",
+                Background: "",
+                Video: "",
+                Duration: 0
+            };
+        }
+
+        return value;
+    }
 }
 
 export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, OsuDbUpdate> {
@@ -162,7 +213,7 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
 
     get_header(): Omit<OsuLegacyDatabase, "beatmaps"> {
         this.assert_handle();
-        const fn = (this.fns as any).get_header as ((handle: bigint) => unknown) | undefined;
+        const fn = this.fns.get_header;
         if (!fn) {
             throw new Error(`${this.prefix}.get_header not implemented`);
         }
@@ -171,9 +222,7 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
 
     get_beatmaps_range(start: number, count: number): OsuDbBeatmap[] {
         this.assert_handle();
-        const fn = (this.fns as any).get_beatmaps_range as
-            | ((handle: bigint, start: number, count: number) => unknown)
-            | undefined;
+        const fn = this.fns.get_beatmaps_range;
         if (!fn) {
             throw new Error(`${this.prefix}.get_beatmaps_range not implemented`);
         }
@@ -182,7 +231,7 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
 
     get_minimal_list(): OsuDbBeatmapMinimal[] {
         this.assert_handle();
-        const fn = (this.fns as any).get_minimal_list as ((handle: bigint) => unknown) | undefined;
+        const fn = this.fns.get_minimal_list;
         if (!fn) {
             throw new Error(`${this.prefix}.get_minimal_list not implemented`);
         }
@@ -191,7 +240,7 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
 
     get_by_md5(md5: string): OsuDbBeatmap | undefined {
         this.assert_handle();
-        const fn = (this.fns as any).get_by_md5 as ((handle: bigint, md5: string) => unknown) | undefined;
+        const fn = this.fns.get_by_md5;
         if (!fn) {
             throw new Error(`${this.prefix}.get_by_md5 not implemented`);
         }
@@ -200,7 +249,7 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
 
     get_minimal_by_md5(md5: string) {
         this.assert_handle();
-        const fn = (this.fns as any).get_minimal_by_md5 as ((handle: bigint, md5: string) => unknown) | undefined;
+        const fn = this.fns.get_minimal_by_md5;
         if (!fn) {
             throw new Error(`${this.prefix}.get_minimal_by_md5 not implemented`);
         }
@@ -209,9 +258,7 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
 
     get_by_beatmapset_id(beatmapset_id: number): OsuDbBeatmap[] {
         this.assert_handle();
-        const fn = (this.fns as any).get_by_beatmapset_id as
-            | ((handle: bigint, beatmapset_id: number) => unknown)
-            | undefined;
+        const fn = this.fns.get_by_beatmapset_id;
         if (!fn) {
             throw new Error(`${this.prefix}.get_by_beatmapset_id not implemented`);
         }
@@ -220,9 +267,7 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
 
     get_by_difficulty_id(difficulty_id: number): OsuDbBeatmap | undefined {
         this.assert_handle();
-        const fn = (this.fns as any).get_by_difficulty_id as
-            | ((handle: bigint, difficulty_id: number) => unknown)
-            | undefined;
+        const fn = this.fns.get_by_difficulty_id;
         if (!fn) {
             throw new Error(`${this.prefix}.get_by_difficulty_id not implemented`);
         }
@@ -255,7 +300,7 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
 
     update_duration(updates: { md5: string; duration?: number | null }[]): boolean {
         this.assert_handle();
-        const fn = (this.fns as any).update_duration as ((handle: bigint, updates: unknown) => boolean) | undefined;
+        const fn = this.fns.update_duration;
         if (!fn) {
             throw new Error(`${this.prefix}.update_duration not implemented`);
         }

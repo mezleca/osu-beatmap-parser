@@ -27,16 +27,17 @@ const remove_dir = (dir_path: string) => {
 
 const compile_native = async () => {
     const TMP_NATIVE = path.join(TARGET_DIR, "native-tmp");
+    const BINARY_NAME = "osu-parser.node";
 
     remove_dir(TMP_NATIVE);
     await execute_raw("cmake-js", ["build", "-G", "Ninja", "--out", TMP_NATIVE]);
 
-    const BIN_NAMES = [path.join(TMP_NATIVE, "osu-parser.node"), path.join(TMP_NATIVE, "Release", "osu-parser.node")];
+    const BIN_NAMES = [path.join(TMP_NATIVE, BINARY_NAME), path.join(TMP_NATIVE, "Release", BINARY_NAME)];
 
     for (const bin_file of BIN_NAMES) {
         if (fs.existsSync(bin_file)) {
-            fs.rmSync(path.join(TARGET_DIR, "osu-beatmap-parser.node"), { force: true });
-            fs.copyFileSync(bin_file, path.join(TARGET_DIR, "osu-parser.node"));
+            fs.rmSync(path.join(TARGET_DIR, BINARY_NAME), { force: true });
+            fs.copyFileSync(bin_file, path.join(TARGET_DIR, BINARY_NAME));
 
             const platform = process.platform;
             const arch = process.arch;
@@ -46,8 +47,8 @@ const compile_native = async () => {
                 fs.mkdirSync(prebuilds_dir, { recursive: true });
             }
 
-            fs.rmSync(path.join(prebuilds_dir, "osu-beatmap-parser.node"), { force: true });
-            fs.copyFileSync(bin_file, path.join(prebuilds_dir, "osu-parser.node"));
+            fs.rmSync(path.join(prebuilds_dir, BINARY_NAME), { force: true });
+            fs.copyFileSync(bin_file, path.join(prebuilds_dir, BINARY_NAME));
 
             console.log(`\ncopied binary to ${prebuilds_dir}`);
             return;

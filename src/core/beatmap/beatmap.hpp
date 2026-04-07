@@ -128,6 +128,7 @@ struct hit_object {
 // === data ===
 struct osu_beatmap {
     int32_t version = 14;
+    double audio_duration = 0.0;
     general_section general;
     editor_section editor;
     metadata_section metadata;

@@ -81,6 +81,8 @@ describe("beatmap parser", () => {
             const data = parser.get();
 
             expect(data.version).toBe("v3");
+            expect(typeof data.audio_duration).toBe("number");
+            expect(data.audio_duration).toBeGreaterThanOrEqual(0);
             expect(data.General.AudioFilename).toBe("Marisa wa Taihen na Mono wo Nusunde Ikimashita.mp3");
             expect(data.General.PreviewTime).toBe(91764);
             expect(data.General.Countdown).toBe(1);
@@ -186,6 +188,25 @@ describe("beatmap parser", () => {
         }
     });
 
+    test("parse_many with progress", async () => {
+        const file_paths = files.beatmaps.map((file) => path.join(ROOT, file));
+        const progress_updates: number[] = [];
+
+        const result = await BeatmapParser.parse_many(file_paths, ["media"], (progress) => {
+            progress_updates.push(progress.processed);
+        });
+
+        expect(result.length).toBe(file_paths.length);
+        expect(progress_updates.length).toBeGreaterThan(0);
+
+        for (const item of result) {
+            expect(item.success).toBe(true);
+            expect(item.error).toBeUndefined();
+            expect(item.media).toBeTruthy();
+            expect(typeof item.media?.Duration).toBe("number");
+        }
+    });
+
     test("update fields and arrays", async () => {
         const parser = new BeatmapParser();
         try {
@@ -232,8 +253,8 @@ describe("beatmap parser", () => {
         try {
             const file_path = path.join(ROOT, "beatmaps/1636774.osu");
             await parser.parse(file_path);
-            expect(() => parser.update({ TimingPoints: {} as unknown as any })).toThrow();
-            expect(() => parser.update({ HitObjects: {} as unknown as any })).toThrow();
+            expect(() => parser.update({ TimingPoints: {} as unknown as never })).toThrow();
+            expect(() => parser.update({ HitObjects: {} as unknown as never })).toThrow();
         } finally {
             parser.free();
         }
@@ -359,7 +380,7 @@ describe("osu!.db parser", () => {
         try {
             const file_path = path.join(ROOT, files.osu_db);
             await parser.parse(file_path);
-            expect(() => parser.update({ beatmaps: {} as unknown as any })).toThrow();
+            expect(() => parser.update({ beatmaps: {} as unknown as never })).toThrow();
         } finally {
             parser.free();
         }
@@ -519,7 +540,7 @@ describe("collection.db parser", () => {
         try {
             const file_path = path.join(ROOT, files.collection_db);
             await parser.parse(file_path);
-            expect(() => parser.update({ collections: {} as unknown as any })).toThrow();
+            expect(() => parser.update({ collections: {} as unknown as never })).toThrow();
         } finally {
             parser.free();
         }
@@ -601,7 +622,7 @@ describe("osdb parser", () => {
         try {
             const file_path = path.join(ROOT, files.osdb);
             await parser.parse(file_path);
-            expect(() => parser.update({ collections: {} as unknown as any })).toThrow();
+            expect(() => parser.update({ collections: {} as unknown as never })).toThrow();
         } finally {
             parser.free();
         }

@@ -1,6 +1,7 @@
 #include "beatmap.hpp"
 
 #include "utils/beatmap_writer.hpp"
+#include "utils/audio.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -74,11 +75,15 @@ static double parse_double(std::string_view s, double def = 0.0) {
     if (t.empty()) {
         return def;
     }
-    try {
-        return std::stod(std::string(t));
-    } catch (...) {
+
+    double result = def;
+    const auto [ptr, ec] = std::from_chars(t.data(), t.data() + t.size(), result);
+
+    if (ec != std::errc() || ptr != (t.data() + t.size())) {
         return def;
     }
+
+    return result;
 }
 
 static std::string remove_quotes(std::string_view s) {
@@ -575,6 +580,7 @@ bool beatmap_parser::parse(std::string location) {
     *data = osu_beatmap();
     data->version = parsed_version;
     data->general = parse_general(get_section(content, "General"));
+    data->audio_duration = get_audio_duration_seconds(this->location, data->general.audio_filename);
     data->editor = parse_editor(get_section(content, "Editor"));
     data->metadata = parse_metadata(get_section(content, "Metadata"));
     data->difficulty = parse_difficulty(get_section(content, "Difficulty"));

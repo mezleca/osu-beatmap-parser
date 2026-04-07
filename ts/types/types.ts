@@ -172,6 +172,7 @@ export interface HitObject {
 
 export interface OsuFileFormat {
     version: string;
+    audio_duration: number;
     General: GeneralSection;
     Editor: EditorSection;
     Metadata: MetadataSection;
@@ -184,6 +185,7 @@ export interface OsuFileFormat {
 
 export type BeatmapKey =
     | "version"
+    | "audio_duration"
     | "General"
     | "Editor"
     | "Metadata"
@@ -446,13 +448,41 @@ export type OsdbKey = "version_string" | "save_data" | "last_editor" | "count" |
 
 export type OsdbUpdate = DeepPartial<OsdbData>;
 
+export interface BeatmapMediaInfo {
+    AudioFilename: string;
+    Background: string;
+    Video: string;
+    Duration: number;
+}
+
+export type BeatmapParseManyField = "media" | "full";
+
+export interface BeatmapParseManyProgress {
+    processed: number;
+    total: number;
+}
+
+export interface BeatmapParseManyItem {
+    location: string;
+    success: boolean;
+    error?: string;
+    media?: BeatmapMediaInfo;
+    beatmap?: OsuFileFormat;
+}
+
 export interface NativeBindings {
     create_beatmap_parser(): bigint;
     free_beatmap_parser(handle: bigint): void;
     beatmap_parser_parse(handle: bigint, location: string): Promise<boolean>;
     beatmap_parser_write(handle: bigint): Promise<boolean>;
+    beatmap_parser_parse_many(
+        paths: string[],
+        fields?: BeatmapParseManyField[],
+        on_progress?: (progress: BeatmapParseManyProgress) => void
+    ): Promise<BeatmapParseManyItem[]>;
     beatmap_parser_last_error(handle: bigint): string | null;
     beatmap_parser_get(handle: bigint): OsuFileFormat;
+    beatmap_parser_get_media(handle: bigint): BeatmapMediaInfo | null;
     beatmap_parser_update(handle: bigint, patch: BeatmapUpdate): boolean;
     beatmap_parser_get_by_name(handle: bigint, key: BeatmapKey): unknown;
 

@@ -8,6 +8,9 @@
 
 namespace osu_bindings {
     using beatmap_instance = parser_base<osu_beatmap, beatmap_parser>;
+    static constexpr uint32_t PARSE_MANY_PROGRESS_BLOCK_SIZE = 100;
+    static constexpr uint32_t PARSE_MANY_FIELD_MEDIA = 1 << 0;
+    static constexpr uint32_t PARSE_MANY_FIELD_FULL = 1 << 1;
 
 #define OSU_GENERAL_FIELDS(X)                                                                                          \
     X(get_optional_string, "AudioFilename", audio_filename)                                                            \
@@ -584,6 +587,7 @@ namespace osu_bindings {
         Napi::Object result = Napi::Object::New(env);
 
         result.Set("version", Napi::String::New(env, "v" + std::to_string(file.version)));
+        result.Set("audio_duration", Napi::Number::New(env, file.audio_duration));
         result.Set("General", general_to_js(env, file.general));
         result.Set("Editor", editor_to_js(env, file.editor));
         result.Set("Metadata", metadata_to_js(env, file.metadata));
@@ -663,9 +667,231 @@ namespace osu_bindings {
         return instance->with_lock([&](osu_beatmap& data, beatmap_parser&) { return beatmap_to_js(env, data); });
     }
 
+    Napi::Value beatmap_parser_get_media(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        beatmap_instance* instance = get_ptr<beatmap_instance>(info, 0);
+
+        if (instance == nullptr) {
+            return env.Null();
+        }
+
+        return instance->with_lock([&](osu_beatmap& data, beatmap_parser&) {
+            Napi::Object result = Napi::Object::New(env);
+            result.Set("AudioFilename", data.general.audio_filename);
+            result.Set("Background", data.background.has_value() ? data.background->filename : "");
+            result.Set("Video", data.video.has_value() ? data.video->filename : "");
+            result.Set("Duration", data.audio_duration);
+            return result;
+        });
+    }
+
+    struct parse_many_progress {
+        uint32_t processed = 0;
+        uint32_t total = 0;
+    };
+
+    struct parse_many_item {
+        std::string location;
+        bool success = false;
+        std::string error;
+        osu_beatmap beatmap;
+    };
+
+    class BeatmapParseManyWorker : public Napi::AsyncProgressQueueWorker<parse_many_progress> {
+      public:
+        BeatmapParseManyWorker(Napi::Env env, std::vector<std::string> paths, uint32_t field_mask,
+                               Napi::Function progress_callback)
+            : Napi::AsyncProgressQueueWorker<parse_many_progress>(env), deferred(Napi::Promise::Deferred::New(env)),
+              paths(std::move(paths)), field_mask(field_mask) {
+            if (!progress_callback.IsEmpty()) {
+                progress_callback_ref = Napi::Persistent(progress_callback);
+                progress_callback_ref.SuppressDestruct();
+            }
+        }
+
+        ~BeatmapParseManyWorker() override {
+            if (!progress_callback_ref.IsEmpty()) {
+                progress_callback_ref.Unref();
+            }
+        }
+
+        void Execute(const ExecutionProgress& progress) override {
+            results.reserve(paths.size());
+
+            for (size_t i = 0; i < paths.size(); i++) {
+                parse_many_item item;
+                item.location = paths[i];
+
+                beatmap_parser parser;
+                parser.data = &item.beatmap;
+
+                item.success = parser.parse(item.location);
+                if (!item.success) {
+                    item.error = parser.last_error;
+                }
+
+                results.push_back(std::move(item));
+
+                const size_t processed = i + 1;
+                if (processed % PARSE_MANY_PROGRESS_BLOCK_SIZE == 0 || processed == paths.size()) {
+                    parse_many_progress update{
+                        static_cast<uint32_t>(processed),
+                        static_cast<uint32_t>(paths.size()),
+                    };
+                    progress.Send(&update, 1);
+                }
+            }
+        }
+
+        void OnProgress(const parse_many_progress* data, size_t count) override {
+            if (progress_callback_ref.IsEmpty()) {
+                return;
+            }
+
+            Napi::Env env = Env();
+
+            for (size_t i = 0; i < count; i++) {
+                Napi::Object payload = Napi::Object::New(env);
+                payload.Set("processed", data[i].processed);
+                payload.Set("total", data[i].total);
+                progress_callback_ref.Call({payload});
+            }
+        }
+
+        void OnOK() override {
+            Napi::Env env = Env();
+            Napi::Array output = Napi::Array::New(env, results.size());
+
+            for (size_t i = 0; i < results.size(); i++) {
+                const parse_many_item& item = results[i];
+                Napi::Object entry = Napi::Object::New(env);
+
+                entry.Set("location", item.location);
+                entry.Set("success", item.success);
+
+                if (!item.success) {
+                    entry.Set("error", item.error);
+                    output.Set(static_cast<uint32_t>(i), entry);
+                    continue;
+                }
+
+                if ((field_mask & PARSE_MANY_FIELD_MEDIA) != 0) {
+                    Napi::Object media = Napi::Object::New(env);
+                    media.Set("AudioFilename", item.beatmap.general.audio_filename);
+                    media.Set("Background",
+                              item.beatmap.background.has_value() ? item.beatmap.background->filename : "");
+                    media.Set("Video", item.beatmap.video.has_value() ? item.beatmap.video->filename : "");
+                    media.Set("Duration", item.beatmap.audio_duration);
+                    entry.Set("media", media);
+                }
+
+                if ((field_mask & PARSE_MANY_FIELD_FULL) != 0) {
+                    entry.Set("beatmap", beatmap_to_js(env, item.beatmap));
+                }
+
+                output.Set(static_cast<uint32_t>(i), entry);
+            }
+
+            deferred.Resolve(output);
+        }
+
+        void OnError(const Napi::Error& error) override {
+            deferred.Reject(error.Value());
+        }
+
+        Napi::Promise GetPromise() const {
+            return deferred.Promise();
+        }
+
+      private:
+        Napi::Promise::Deferred deferred;
+        std::vector<std::string> paths;
+        uint32_t field_mask = PARSE_MANY_FIELD_MEDIA;
+        std::vector<parse_many_item> results;
+        Napi::FunctionReference progress_callback_ref;
+    };
+
+    static bool parse_fields(const Napi::Value& value, uint32_t& field_mask, std::string& error) {
+        if (!value.IsArray()) {
+            error = "fields must be an array";
+            return false;
+        }
+
+        Napi::Array fields = value.As<Napi::Array>();
+        field_mask = 0;
+
+        for (uint32_t i = 0; i < fields.Length(); i++) {
+            Napi::Value current = fields.Get(i);
+
+            if (!current.IsString()) {
+                error = "invalid fields entry";
+                return false;
+            }
+
+            const std::string field = current.As<Napi::String>().Utf8Value();
+
+            if (field == "media") {
+                field_mask |= PARSE_MANY_FIELD_MEDIA;
+                continue;
+            }
+
+            if (field == "full") {
+                field_mask |= PARSE_MANY_FIELD_FULL;
+                continue;
+            }
+        }
+
+        if (field_mask == 0) {
+            field_mask = PARSE_MANY_FIELD_MEDIA;
+        }
+
+        return true;
+    }
+
+    Napi::Value beatmap_parser_parse_many(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+
+        if (info.Length() < 1 || !info[0].IsArray()) {
+            return reject_promise(env, "paths must be an array");
+        }
+
+        Napi::Array paths_array = info[0].As<Napi::Array>();
+        std::vector<std::string> paths;
+        paths.reserve(paths_array.Length());
+
+        for (uint32_t i = 0; i < paths_array.Length(); i++) {
+            Napi::Value value = paths_array.Get(i);
+            if (!value.IsString()) {
+                return reject_promise(env, "invalid path entry");
+            }
+            paths.push_back(value.As<Napi::String>().Utf8Value());
+        }
+
+        uint32_t field_mask = PARSE_MANY_FIELD_MEDIA;
+        if (info.Length() > 1 && !info[1].IsUndefined() && !info[1].IsNull()) {
+            std::string error;
+            if (!parse_fields(info[1], field_mask, error)) {
+                return reject_promise(env, error.c_str());
+            }
+        }
+
+        Napi::Function progress_callback;
+        if (info.Length() > 2 && info[2].IsFunction()) {
+            progress_callback = info[2].As<Napi::Function>();
+        }
+
+        auto* worker = new BeatmapParseManyWorker(env, std::move(paths), field_mask, progress_callback);
+        Napi::Promise promise = worker->GetPromise();
+        worker->Queue();
+        return promise;
+    }
+
     Napi::Value beatmap_get_by_key(Napi::Env& env, const osu_beatmap& data, const std::string& key) {
         if (key == "version") {
             return Napi::String::New(env, "v" + std::to_string(data.version));
+        }
+        if (key == "audio_duration") {
+            return Napi::Number::New(env, data.audio_duration);
         }
 
         if (key == "General")
@@ -915,8 +1141,10 @@ namespace osu_bindings {
         exports.Set("free_beatmap_parser", Napi::Function::New(env, free_beatmap_parser));
         exports.Set("beatmap_parser_parse", Napi::Function::New(env, beatmap_parser_parse));
         exports.Set("beatmap_parser_write", Napi::Function::New(env, beatmap_parser_write));
+        exports.Set("beatmap_parser_parse_many", Napi::Function::New(env, beatmap_parser_parse_many));
         exports.Set("beatmap_parser_last_error", Napi::Function::New(env, beatmap_parser_last_error));
         exports.Set("beatmap_parser_get", Napi::Function::New(env, beatmap_parser_get));
+        exports.Set("beatmap_parser_get_media", Napi::Function::New(env, beatmap_parser_get_media));
         exports.Set("beatmap_parser_update", Napi::Function::New(env, beatmap_parser_update));
         exports.Set("beatmap_parser_get_by_name", Napi::Function::New(env, beatmap_parser_get_by_name));
     }
