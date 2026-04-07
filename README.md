@@ -21,8 +21,8 @@ import { BeatmapParser } from "osu-parser";
 
 const parser = new BeatmapParser();
 
-const main = async () => {
-    try {
+(() => {
+	try {
         await parser.parse("path/to/file.osu");
         const data = await parser.get();
         console.log(data);
@@ -31,7 +31,5 @@ const main = async () => {
     } finally {
         await parser.free();
     }
-};
-
-main();
+})();
 ```
