@@ -300,40 +300,15 @@ describe("osu!.db parser", () => {
         );
     });
 
-    test("get_by_name", async () => {
+    test("get_header", async () => {
         const parser = new OsuDbParser();
         try {
             const file_path = path.join(ROOT, files.osu_db);
             await parser.parse(file_path);
-            expect(parser.get_by_name("version")).toBe(20251102);
-            expect(parser.get_by_name("player_name")).toBe("mzle");
-            expect(parser.get_by_name("beatmaps")).toBeTruthy();
-        } finally {
-            parser.free();
-        }
-    });
-
-    test("get_by_md5 helpers", async () => {
-        const parser = new OsuDbParser();
-        try {
-            const file_path = path.join(ROOT, files.osu_db);
-            await parser.parse(file_path);
-            const data = parser.get();
-            const first = data.beatmaps[0];
-
-            const full = parser.get_by_md5(first.md5);
-            expect(full?.md5).toBe(first.md5);
-
-            const minimal = parser.get_minimal_by_md5(first.md5);
-            expect(minimal?.md5).toBe(first.md5);
-            expect(minimal?.beatmap_id).toBe(first.beatmap_id);
-            expect(minimal?.difficulty_id).toBe(first.difficulty_id);
-
-            const by_set = parser.get_by_beatmapset_id(first.beatmap_id);
-            expect(by_set.length).toBeGreaterThan(0);
-
-            const by_diff = parser.get_by_difficulty_id(first.difficulty_id);
-            expect(by_diff?.md5).toBe(first.md5);
+            const header = parser.get_header();
+            expect(header.version).toBe(20251102);
+            expect(header.player_name).toBe("mzle");
+            expect(header.beatmaps_count).toBeGreaterThan(0);
         } finally {
             parser.free();
         }
@@ -393,7 +368,7 @@ describe("osu!.db parser", () => {
             await parser.parse(file_path);
             const data = parser.get();
             const first = data.beatmaps[0];
-            const safe = (value: string) => value.replaceAll('"', "");
+            const safe = (value: string) => value.split('"').join("");
 
             const mode_alias = (mode: number) => {
                 switch (mode) {
@@ -452,14 +427,68 @@ describe("osu!.db parser", () => {
             const by_advanced = parser.filter_by_properties({ query: advanced_query });
             expect(by_advanced.some((beatmap) => beatmap.md5 === first.md5)).toBe(true);
 
-            const md5_list = parser.filter_md5_by_properties({ md5: first.md5 });
-            expect(md5_list).toEqual([first.md5]);
+            const artist_prefix = safe(first.artist.slice(0, Math.max(1, Math.min(2, first.artist.length))));
+            const by_starts_with = parser.filter_by_properties({ query: `artist^="${artist_prefix}"` });
+            expect(by_starts_with.some((beatmap) => beatmap.md5 === first.md5)).toBe(true);
 
-            const diff_ids = parser.filter_ids_by_properties({ md5: first.md5 });
-            expect(diff_ids).toEqual([first.difficulty_id]);
+            const title_suffix = safe(first.title.slice(-Math.max(1, Math.min(2, first.title.length))));
+            const by_ends_with = parser.filter_by_properties({ query: `title$="${title_suffix}"` });
+            expect(by_ends_with.some((beatmap) => beatmap.md5 === first.md5)).toBe(true);
 
-            const set_ids = parser.filter_ids_by_properties({ md5: first.md5, id_type: "beatmap_id" });
-            expect(set_ids).toEqual([first.beatmap_id]);
+            const by_not_contains = parser.filter_by_properties({ query: "artist!:__never_match__" });
+            expect(by_not_contains.length).toBeGreaterThan(0);
+
+            const by_unplayed_true = parser.filter_by_properties({ query: "unplayed=true" });
+            expect(Array.isArray(by_unplayed_true)).toBe(true);
+
+            const by_unplayed_false = parser.filter_by_properties({ query: "unplayed=false" });
+            expect(Array.isArray(by_unplayed_false)).toBe(true);
+
+            const filtered = parser.filter_by_properties({ md5: first.md5 });
+            expect(filtered.length).toBe(1);
+            expect(filtered[0].difficulty_id).toBe(first.difficulty_id);
+            expect(filtered[0].beatmap_id).toBe(first.beatmap_id);
+        } finally {
+            parser.free();
+        }
+    });
+
+    test("filter query aliases and operators", async () => {
+        const parser = new OsuDbParser();
+        try {
+            const file_path = path.join(ROOT, files.osu_db);
+            await parser.parse(file_path);
+            const data = parser.get();
+            const first = data.beatmaps[0];
+            const safe = (value: string) => value.split('"').join("");
+
+            const by_alias_author = parser.filter_by_properties({ query: `author="${safe(first.creator)}"` });
+            expect(by_alias_author.some((beatmap) => beatmap.md5 === first.md5)).toBe(true);
+
+            const by_alias_diff = parser.filter_by_properties({ query: `diff="${safe(first.difficulty)}"` });
+            expect(by_alias_diff.some((beatmap) => beatmap.md5 === first.md5)).toBe(true);
+
+            const by_alias_dr = parser.filter_by_properties({
+                query: `dr>=${Math.max(0, first.hp_drain - 0.01)}`
+            });
+            expect(by_alias_dr.some((beatmap) => beatmap.md5 === first.md5)).toBe(true);
+
+            const by_alias_key = parser.filter_by_properties({
+                query: `key>=${Math.max(0, first.circle_size - 0.01)}`
+            });
+            expect(by_alias_key.some((beatmap) => beatmap.md5 === first.md5)).toBe(true);
+
+            const by_alias_sr = parser.filter_by_properties({ query: "sr>=0" });
+            expect(by_alias_sr.length).toBeGreaterThan(0);
+
+            const by_tilde_contains = parser.filter_by_properties({ query: `artist~="${safe(first.artist)}"` });
+            expect(by_tilde_contains.some((beatmap) => beatmap.md5 === first.md5)).toBe(true);
+
+            const by_tilde_not_contains = parser.filter_by_properties({ query: "artist!~__never_match__" });
+            expect(by_tilde_not_contains.length).toBeGreaterThan(0);
+
+            expect(() => parser.filter_by_properties({ query: "artist>=1" })).toThrow();
+            expect(() => parser.filter_by_properties({ query: "ar:5" })).toThrow();
         } finally {
             parser.free();
         }

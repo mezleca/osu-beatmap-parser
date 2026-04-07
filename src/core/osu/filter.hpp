@@ -38,7 +38,7 @@ namespace osu_filter {
         tags
     };
 
-    enum class query_op { eq, ne, lt, lte, gt, gte };
+    enum class query_op { eq, ne, lt, lte, gt, gte, contains, not_contains, starts_with, ends_with };
 
     struct query_filter {
         query_field field;

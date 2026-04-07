@@ -690,11 +690,28 @@ namespace osu_bindings {
         uint32_t total = 0;
     };
 
+    struct parse_many_media {
+        std::string audio_filename;
+        std::string background;
+        std::string video;
+        double duration = 0.0;
+    };
+
     struct parse_many_item {
         std::string location;
         bool success = false;
         std::string error;
-        osu_beatmap beatmap;
+        parse_many_media media;
+        std::optional<osu_beatmap> beatmap;
+    };
+
+    static parse_many_media build_parse_many_media(const osu_beatmap& beatmap) {
+        parse_many_media media;
+        media.audio_filename = beatmap.general.audio_filename;
+        media.background = beatmap.background.has_value() ? beatmap.background->filename : "";
+        media.video = beatmap.video.has_value() ? beatmap.video->filename : "";
+        media.duration = beatmap.audio_duration;
+        return media;
     };
 
     class BeatmapParseManyWorker : public Napi::AsyncProgressQueueWorker<parse_many_progress> {
@@ -722,12 +739,20 @@ namespace osu_bindings {
                 parse_many_item item;
                 item.location = paths[i];
 
+                osu_beatmap parsed;
                 beatmap_parser parser;
-                parser.data = &item.beatmap;
+                parser.data = &parsed;
 
                 item.success = parser.parse(item.location);
                 if (!item.success) {
                     item.error = parser.last_error;
+                } else {
+                    if ((field_mask & PARSE_MANY_FIELD_MEDIA) != 0) {
+                        item.media = build_parse_many_media(parsed);
+                    }
+                    if ((field_mask & PARSE_MANY_FIELD_FULL) != 0) {
+                        item.beatmap = std::move(parsed);
+                    }
                 }
 
                 results.push_back(std::move(item));
@@ -777,16 +802,17 @@ namespace osu_bindings {
 
                 if ((field_mask & PARSE_MANY_FIELD_MEDIA) != 0) {
                     Napi::Object media = Napi::Object::New(env);
-                    media.Set("AudioFilename", item.beatmap.general.audio_filename);
-                    media.Set("Background",
-                              item.beatmap.background.has_value() ? item.beatmap.background->filename : "");
-                    media.Set("Video", item.beatmap.video.has_value() ? item.beatmap.video->filename : "");
-                    media.Set("Duration", item.beatmap.audio_duration);
+                    media.Set("AudioFilename", item.media.audio_filename);
+                    media.Set("Background", item.media.background);
+                    media.Set("Video", item.media.video);
+                    media.Set("Duration", item.media.duration);
                     entry.Set("media", media);
                 }
 
                 if ((field_mask & PARSE_MANY_FIELD_FULL) != 0) {
-                    entry.Set("beatmap", beatmap_to_js(env, item.beatmap));
+                    if (item.beatmap.has_value()) {
+                        entry.Set("beatmap", beatmap_to_js(env, item.beatmap.value()));
+                    }
                 }
 
                 output.Set(static_cast<uint32_t>(i), entry);

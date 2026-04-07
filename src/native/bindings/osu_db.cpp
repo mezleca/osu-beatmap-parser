@@ -229,49 +229,51 @@ namespace osu_bindings {
             }
         }
 
-        if (!parse_int_list(obj, "mode", out.modes, err) ||
-            !parse_int_list(obj, "ranked_status", out.ranked_statuses, err) ||
-            !parse_int_list(obj, "beatmap_id", out.beatmap_ids, err) ||
-            !parse_int_list(obj, "difficulty_id", out.difficulty_ids, err) ||
-            !parse_int_list(obj, "thread_id", out.thread_ids, err)) {
-            return false;
-        }
+#define PARSE_INT_LIST_PROP(js_key, member_name)                                                                       \
+    if (!parse_int_list(obj, js_key, out.member_name, err)) {                                                          \
+        return false;                                                                                                  \
+    }
+        PARSE_INT_LIST_PROP("mode", modes)
+        PARSE_INT_LIST_PROP("ranked_status", ranked_statuses)
+        PARSE_INT_LIST_PROP("beatmap_id", beatmap_ids)
+        PARSE_INT_LIST_PROP("difficulty_id", difficulty_ids)
+        PARSE_INT_LIST_PROP("thread_id", thread_ids)
+#undef PARSE_INT_LIST_PROP
 
         if (!parse_string_list(obj, "md5", out.md5_list, err)) {
             return false;
         }
 
-        if (!parse_optional_string_prop(obj, "artist", out.artist, out.has_artist, err) ||
-            !parse_optional_string_prop(obj, "title", out.title, out.has_title, err) ||
-            !parse_optional_string_prop(obj, "creator", out.creator, out.has_creator, err) ||
-            !parse_optional_string_prop(obj, "difficulty", out.difficulty, out.has_difficulty, err) ||
-            !parse_optional_string_prop(obj, "source", out.source, out.has_source, err) ||
-            !parse_optional_string_prop(obj, "tags", out.tags, out.has_tags, err) ||
-            !parse_optional_string_prop(obj, "folder_name", out.folder_name, out.has_folder_name, err) ||
-            !parse_optional_string_prop(obj, "audio_file_name", out.audio_file_name, out.has_audio_file_name, err) ||
-            !parse_optional_string_prop(obj, "osu_file_name", out.osu_file_name, out.has_osu_file_name, err)) {
-            return false;
-        }
+#define PARSE_TEXT_PROP(js_key, member_name)                                                                           \
+    if (!parse_optional_string_prop(obj, js_key, out.member_name, out.has_##member_name, err)) {                       \
+        return false;                                                                                                  \
+    }
+        PARSE_TEXT_PROP("artist", artist)
+        PARSE_TEXT_PROP("title", title)
+        PARSE_TEXT_PROP("creator", creator)
+        PARSE_TEXT_PROP("difficulty", difficulty)
+        PARSE_TEXT_PROP("source", source)
+        PARSE_TEXT_PROP("tags", tags)
+        PARSE_TEXT_PROP("folder_name", folder_name)
+        PARSE_TEXT_PROP("audio_file_name", audio_file_name)
+        PARSE_TEXT_PROP("osu_file_name", osu_file_name)
+#undef PARSE_TEXT_PROP
 
-        if (!parse_number_range(obj, "ar", out.ar, err) || !parse_number_range(obj, "cs", out.cs, err) ||
-            !parse_number_range(obj, "hp", out.hp, err) || !parse_number_range(obj, "od", out.od, err) ||
-            !parse_number_range(obj, "drain_time", out.drain_time, err) ||
-            !parse_number_range(obj, "total_time", out.total_time, err) ||
-            !parse_number_range(obj, "duration", out.duration, err) ||
-            !parse_number_range(obj, "audio_preview_time", out.audio_preview_time, err) ||
-            !parse_number_range(obj, "star_rating", out.star_rating, err)) {
-            return false;
-        }
-
-        out.has_ar = obj.Has("ar");
-        out.has_cs = obj.Has("cs");
-        out.has_hp = obj.Has("hp");
-        out.has_od = obj.Has("od");
-        out.has_drain_time = obj.Has("drain_time");
-        out.has_total_time = obj.Has("total_time");
-        out.has_duration = obj.Has("duration");
-        out.has_audio_preview_time = obj.Has("audio_preview_time");
-        out.has_star_rating = obj.Has("star_rating");
+#define PARSE_RANGE_PROP(js_key, member_name)                                                                          \
+    if (!parse_number_range(obj, js_key, out.member_name, err)) {                                                      \
+        return false;                                                                                                  \
+    }                                                                                                                  \
+    out.has_##member_name = obj.Has(js_key);
+        PARSE_RANGE_PROP("ar", ar)
+        PARSE_RANGE_PROP("cs", cs)
+        PARSE_RANGE_PROP("hp", hp)
+        PARSE_RANGE_PROP("od", od)
+        PARSE_RANGE_PROP("drain_time", drain_time)
+        PARSE_RANGE_PROP("total_time", total_time)
+        PARSE_RANGE_PROP("duration", duration)
+        PARSE_RANGE_PROP("audio_preview_time", audio_preview_time)
+        PARSE_RANGE_PROP("star_rating", star_rating)
+#undef PARSE_RANGE_PROP
 
         if (obj.Has("id_type")) {
             Napi::Value id_type = obj.Get("id_type");
@@ -664,47 +666,6 @@ namespace osu_bindings {
         });
     }
 
-    Napi::Value osu_db_parser_get_beatmaps_range(const Napi::CallbackInfo& info) {
-        Napi::Env env = info.Env();
-        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
-
-        if (instance == nullptr) {
-            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        if (info.Length() < 3 || !info[1].IsNumber() || !info[2].IsNumber()) {
-            Napi::TypeError::New(env, "start and count are required").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        const int64_t start_raw = info[1].As<Napi::Number>().Int64Value();
-        const int64_t count_raw = info[2].As<Napi::Number>().Int64Value();
-
-        if (start_raw < 0 || count_raw < 0) {
-            Napi::TypeError::New(env, "start and count must be non-negative").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) {
-            const size_t start = static_cast<size_t>(start_raw);
-            const size_t count = static_cast<size_t>(count_raw);
-            if (start >= data.beatmaps.size() || count == 0) {
-                return Napi::Array::New(env, 0);
-            }
-
-            const size_t end = std::min(start + count, data.beatmaps.size());
-            Napi::Array result = Napi::Array::New(env, end - start);
-
-            size_t index = 0;
-            for (size_t i = start; i < end; i++) {
-                result.Set(static_cast<uint32_t>(index++), beatmap_to_js(env, data.beatmaps[i]));
-            }
-
-            return result;
-        });
-    }
-
     Napi::Value osu_db_parser_get_minimal_list(const Napi::CallbackInfo& info) {
         Napi::Env env = info.Env();
         osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
@@ -721,114 +682,6 @@ namespace osu_bindings {
             }
             return result;
         });
-    }
-
-    Napi::Value osu_db_parser_get_by_md5(const Napi::CallbackInfo& info) {
-        Napi::Env env = info.Env();
-
-        if (info.Length() < 2 || !info[1].IsString()) {
-            return env.Undefined();
-        }
-
-        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
-        std::string md5 = info[1].As<Napi::String>().Utf8Value();
-
-        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) -> Napi::Value {
-            for (const auto& beatmap : data.beatmaps) {
-                if (beatmap.md5 == md5) {
-                    return beatmap_to_js(env, beatmap);
-                }
-            }
-            return env.Undefined();
-        });
-    }
-
-    Napi::Value osu_db_parser_get_minimal_by_md5(const Napi::CallbackInfo& info) {
-        Napi::Env env = info.Env();
-
-        if (info.Length() < 2 || !info[1].IsString()) {
-            return env.Undefined();
-        }
-
-        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
-        std::string md5 = info[1].As<Napi::String>().Utf8Value();
-
-        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) -> Napi::Value {
-            for (const auto& beatmap : data.beatmaps) {
-                if (beatmap.md5 == md5) {
-                    return beatmap_minimal_to_js(env, beatmap);
-                }
-            }
-            return env.Undefined();
-        });
-    }
-
-    Napi::Value osu_db_parser_get_by_beatmapset_id(const Napi::CallbackInfo& info) {
-        Napi::Env env = info.Env();
-
-        if (info.Length() < 2 || !info[1].IsNumber()) {
-            return Napi::Array::New(env, 0);
-        }
-
-        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
-        int32_t beatmapset_id = info[1].As<Napi::Number>().Int32Value();
-
-        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) {
-            Napi::Array result = Napi::Array::New(env);
-            uint32_t index = 0;
-            for (const auto& beatmap : data.beatmaps) {
-                if (beatmap.beatmap_id == beatmapset_id) {
-                    result.Set(index++, beatmap_to_js(env, beatmap));
-                }
-            }
-            return result;
-        });
-    }
-
-    Napi::Value osu_db_parser_get_by_difficulty_id(const Napi::CallbackInfo& info) {
-        Napi::Env env = info.Env();
-
-        if (info.Length() < 2 || !info[1].IsNumber()) {
-            return env.Undefined();
-        }
-
-        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
-        int32_t difficulty_id = info[1].As<Napi::Number>().Int32Value();
-
-        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) -> Napi::Value {
-            for (const auto& beatmap : data.beatmaps) {
-                if (beatmap.difficulty_id == difficulty_id) {
-                    return beatmap_to_js(env, beatmap);
-                }
-            }
-            return env.Undefined();
-        });
-    }
-
-    Napi::Value osu_db_get_by_key(Napi::Env& env, const osu_legacy_database& data, const std::string& key) {
-        if (key == "version")
-            return Napi::Number::New(env, data.version);
-        if (key == "folder_count")
-            return Napi::Number::New(env, data.folder_count);
-        if (key == "account_unlocked")
-            return Napi::Number::New(env, data.account_unlocked);
-        if (key == "account_unlock_time")
-            return Napi::BigInt::New(env, data.account_unlock_time);
-        if (key == "player_name")
-            return Napi::String::New(env, data.player_name);
-        if (key == "beatmaps_count")
-            return Napi::Number::New(env, data.beatmaps_count);
-        if (key == "permissions")
-            return Napi::Number::New(env, data.permissions);
-        if (key == "beatmaps") {
-            Napi::Array beatmaps = Napi::Array::New(env, data.beatmaps.size());
-            for (size_t i = 0; i < data.beatmaps.size(); i++) {
-                beatmaps.Set(static_cast<uint32_t>(i), beatmap_to_js(env, data.beatmaps[i]));
-            }
-            return beatmaps;
-        }
-
-        return env.Undefined();
     }
 
     Napi::Value osu_db_parser_update(const Napi::CallbackInfo& info) {
@@ -878,120 +731,34 @@ namespace osu_bindings {
         return Napi::Boolean::New(env, true);
     }
 
-    Napi::Value osu_db_parser_update_duration(const Napi::CallbackInfo& info) {
+    static bool parse_filter_request(const Napi::CallbackInfo& info, osu_db_instance*& instance,
+                                     osu_filter::osu_db_filter_props& props) {
         Napi::Env env = info.Env();
-        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
-
+        instance = get_ptr<osu_db_instance>(info, 0);
         if (instance == nullptr) {
             Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        if (info.Length() < 2 || !info[1].IsArray()) {
-            Napi::TypeError::New(env, "updates must be an array").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        Napi::Array arr = info[1].As<Napi::Array>();
-        std::vector<std::pair<std::string, std::optional<double>>> updates;
-        updates.reserve(arr.Length());
-
-        for (uint32_t i = 0; i < arr.Length(); i++) {
-            Napi::Value item = arr.Get(i);
-            if (!is_object(item)) {
-                Napi::TypeError::New(env, "invalid update").ThrowAsJavaScriptException();
-                return env.Undefined();
-            }
-
-            Napi::Object obj = item.As<Napi::Object>();
-            if (!obj.Has("md5") || !obj.Get("md5").IsString()) {
-                Napi::TypeError::New(env, "md5 is required").ThrowAsJavaScriptException();
-                return env.Undefined();
-            }
-
-            std::string md5 = obj.Get("md5").As<Napi::String>().Utf8Value();
-            std::optional<double> duration;
-
-            if (obj.Has("duration")) {
-                Napi::Value duration_val = obj.Get("duration");
-                if (duration_val.IsNull()) {
-                    duration.reset();
-                } else if (duration_val.IsNumber()) {
-                    duration = duration_val.As<Napi::Number>().DoubleValue();
-                } else {
-                    Napi::TypeError::New(env, "duration must be number or null").ThrowAsJavaScriptException();
-                    return env.Undefined();
-                }
-            } else {
-                duration.reset();
-            }
-
-            updates.emplace_back(std::move(md5), duration);
-        }
-
-        bool ok = instance->with_lock([&](osu_legacy_database& data, osu_db_parser& parser) {
-            std::unordered_map<std::string, osu_db_beatmap*> lookup;
-            lookup.reserve(data.beatmaps.size());
-
-            for (auto& beatmap : data.beatmaps) {
-                if (!beatmap.md5.empty()) {
-                    lookup.emplace(beatmap.md5, &beatmap);
-                }
-            }
-
-            for (const auto& update : updates) {
-                const auto it = lookup.find(update.first);
-                if (it == lookup.end()) {
-                    continue;
-                }
-                it->second->duration = update.second;
-            }
-
-            parser.last_error.clear();
-            return true;
-        });
-
-        if (!ok) {
-            std::string message = instance->parser.last_error.empty() ? "update failed" : instance->parser.last_error;
-            Napi::Error::New(env, message).ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        return Napi::Boolean::New(env, true);
-    }
-
-    Napi::Value osu_db_parser_get_by_name(const Napi::CallbackInfo& info) {
-        Napi::Env env = info.Env();
-        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
-
-        if (instance == nullptr || info.Length() < 2 || !info[1].IsString()) {
-            return env.Undefined();
-        }
-
-        std::string key = info[1].As<Napi::String>();
-        return instance->with_lock(
-            [&](osu_legacy_database& data, osu_db_parser&) { return osu_db_get_by_key(env, data, key); });
-    }
-
-    Napi::Value osu_db_parser_filter_by_properties(const Napi::CallbackInfo& info) {
-        Napi::Env env = info.Env();
-        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
-
-        if (instance == nullptr) {
-            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
-            return env.Undefined();
+            return false;
         }
 
         if (info.Length() < 2 || !is_object(info[1])) {
             Napi::TypeError::New(env, "properties must be an object").ThrowAsJavaScriptException();
-            return env.Undefined();
+            return false;
         }
 
-        osu_filter::osu_db_filter_props props;
         std::string err;
-
         if (!parse_filter_props(info[1], props, err)) {
             Napi::Error::New(env, err).ThrowAsJavaScriptException();
+            return false;
+        }
+
+        return true;
+    }
+
+    Napi::Value osu_db_parser_filter_by_properties(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        osu_db_instance* instance = nullptr;
+        osu_filter::osu_db_filter_props props;
+        if (!parse_filter_request(info, instance, props)) {
             return env.Undefined();
         }
 
@@ -1007,84 +774,6 @@ namespace osu_bindings {
         });
     }
 
-    Napi::Value osu_db_parser_filter_md5_by_properties(const Napi::CallbackInfo& info) {
-        Napi::Env env = info.Env();
-        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
-
-        if (instance == nullptr) {
-            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        if (info.Length() < 2 || !is_object(info[1])) {
-            Napi::TypeError::New(env, "properties must be an object").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        osu_filter::osu_db_filter_props props;
-        std::string err;
-
-        if (!parse_filter_props(info[1], props, err)) {
-            Napi::Error::New(env, err).ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) {
-            std::vector<std::string> matches = osu_filter::filter_md5_by_properties(data, props);
-
-            Napi::Array result = Napi::Array::New(env, matches.size());
-            for (size_t i = 0; i < matches.size(); i++) {
-                result.Set(static_cast<uint32_t>(i), Napi::String::New(env, matches[i]));
-            }
-
-            return result;
-        });
-    }
-
-    Napi::Value osu_db_parser_filter_ids_by_properties(const Napi::CallbackInfo& info) {
-        Napi::Env env = info.Env();
-        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
-
-        if (instance == nullptr) {
-            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        if (info.Length() < 2 || !is_object(info[1])) {
-            Napi::TypeError::New(env, "properties must be an object").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        osu_filter::osu_db_filter_props props;
-        std::string err;
-
-        if (!parse_filter_props(info[1], props, err)) {
-            Napi::Error::New(env, err).ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        const std::string id_type = props.id_type.empty() ? "difficulty_id" : props.id_type;
-
-        if (id_type != "difficulty_id" && id_type != "beatmap_id") {
-            Napi::Error::New(env, "invalid id_type").ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-
-        const osu_filter::id_type type =
-            id_type == "beatmap_id" ? osu_filter::id_type::beatmap_id : osu_filter::id_type::difficulty_id;
-
-        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) {
-            std::vector<int32_t> matches = osu_filter::filter_ids_by_properties(data, props, type);
-
-            Napi::Array result = Napi::Array::New(env, matches.size());
-            for (size_t i = 0; i < matches.size(); i++) {
-                result.Set(static_cast<uint32_t>(i), Napi::Number::New(env, matches[i]));
-            }
-
-            return result;
-        });
-    }
-
     void register_osu_db(Napi::Env env, Napi::Object exports) {
         exports.Set("create_osu_db_parser", Napi::Function::New(env, create_osu_db_parser));
         exports.Set("free_osu_db_parser", Napi::Function::New(env, free_osu_db_parser));
@@ -1093,19 +782,8 @@ namespace osu_bindings {
         exports.Set("osu_db_parser_last_error", Napi::Function::New(env, osu_db_parser_last_error));
         exports.Set("osu_db_parser_get", Napi::Function::New(env, osu_db_parser_get));
         exports.Set("osu_db_parser_get_header", Napi::Function::New(env, osu_db_parser_get_header));
-        exports.Set("osu_db_parser_get_beatmaps_range", Napi::Function::New(env, osu_db_parser_get_beatmaps_range));
         exports.Set("osu_db_parser_get_minimal_list", Napi::Function::New(env, osu_db_parser_get_minimal_list));
-        exports.Set("osu_db_parser_get_by_md5", Napi::Function::New(env, osu_db_parser_get_by_md5));
-        exports.Set("osu_db_parser_get_minimal_by_md5", Napi::Function::New(env, osu_db_parser_get_minimal_by_md5));
-        exports.Set("osu_db_parser_get_by_beatmapset_id", Napi::Function::New(env, osu_db_parser_get_by_beatmapset_id));
-        exports.Set("osu_db_parser_get_by_difficulty_id", Napi::Function::New(env, osu_db_parser_get_by_difficulty_id));
         exports.Set("osu_db_parser_update", Napi::Function::New(env, osu_db_parser_update));
-        exports.Set("osu_db_parser_update_duration", Napi::Function::New(env, osu_db_parser_update_duration));
-        exports.Set("osu_db_parser_get_by_name", Napi::Function::New(env, osu_db_parser_get_by_name));
         exports.Set("osu_db_parser_filter_by_properties", Napi::Function::New(env, osu_db_parser_filter_by_properties));
-        exports.Set("osu_db_parser_filter_md5_by_properties",
-                    Napi::Function::New(env, osu_db_parser_filter_md5_by_properties));
-        exports.Set("osu_db_parser_filter_ids_by_properties",
-                    Napi::Function::New(env, osu_db_parser_filter_ids_by_properties));
     }
 }

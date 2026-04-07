@@ -32,6 +32,56 @@ jobs:
               if: runner.os == 'Windows'
               uses: ilammy/msvc-dev-cmd@v1
 
+            - name: cache vcpkg (windows)
+              if: runner.os == 'Windows'
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      C:/vcpkg/installed
+                      C:/vcpkg/packages
+                      C:/vcpkg/buildtrees
+                  key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/CMakeLists.txt') }}-libsndfile
+                  restore-keys: |
+                      ${{ runner.os }}-vcpkg-
+
+            - name: setup vcpkg (windows)
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: |
+                  $vcpkg_root = "C:\vcpkg"
+                  if (-Not (Test-Path (Join-Path $vcpkg_root "vcpkg.exe"))) {
+                      if (Test-Path $vcpkg_root) {
+                          Remove-Item -Recurse -Force $vcpkg_root
+                      }
+                      git clone https://github.com/microsoft/vcpkg $vcpkg_root
+                      & "$vcpkg_root\bootstrap-vcpkg.bat"
+                  }
+
+                  & "$vcpkg_root\vcpkg.exe" install libsndfile[core,mpeg,external-libs]:x64-windows-static
+
+                  "VCPKG_ROOT=$vcpkg_root" | Out-File -FilePath $env:GITHUB_ENV -Append
+                  "VCPKG_DEFAULT_TRIPLET=x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append
+                  "VCPKG_TARGET_TRIPLET=x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append
+                  "CMAKE_TOOLCHAIN_FILE=$vcpkg_root\scripts\buildsystems\vcpkg.cmake" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+            - name: setup vcpkg (linux)
+              if: runner.os == 'Linux'
+              shell: bash
+              run: |
+                  vcpkg_root="/home/runner/vcpkg"
+                  if [ ! -x "$vcpkg_root/vcpkg" ]; then
+                      rm -rf "$vcpkg_root"
+                      git clone https://github.com/microsoft/vcpkg "$vcpkg_root"
+                      "$vcpkg_root/bootstrap-vcpkg.sh"
+                  fi
+
+                  "$vcpkg_root/vcpkg" install libsndfile[core,mpeg,external-libs]:x64-linux
+
+                  echo "VCPKG_ROOT=$vcpkg_root" >> "$GITHUB_ENV"
+                  echo "VCPKG_DEFAULT_TRIPLET=x64-linux" >> "$GITHUB_ENV"
+                  echo "VCPKG_TARGET_TRIPLET=x64-linux" >> "$GITHUB_ENV"
+                  echo "CMAKE_TOOLCHAIN_FILE=$vcpkg_root/scripts/buildsystems/vcpkg.cmake" >> "$GITHUB_ENV"
+
             - name: cache LLVM
               if: runner.os == 'Windows'
               id: cache-llvm

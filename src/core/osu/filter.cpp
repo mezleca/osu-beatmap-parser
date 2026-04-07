@@ -2,14 +2,158 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cmath>
+#include <charconv>
 #include <cctype>
-#include <cstring>
+#include <cmath>
+#include <cstdlib>
+#include <initializer_list>
 #include <optional>
 #include <unordered_map>
-#include <cstdlib>
+
+#define OSU_QUERY_FIELD_LIST(X)                                                                                        \
+    X(std::string_view, text, artist)                                                                                  \
+    X(std::string_view, text, creator, "author", "mapper")                                                             \
+    X(std::string_view, text, title)                                                                                   \
+    X(std::string_view, text, difficulty, "diff")                                                                      \
+    X(double, number, ar)                                                                                              \
+    X(double, number, cs)                                                                                              \
+    X(double, number, od)                                                                                              \
+    X(double, number, hp, "dr")                                                                                        \
+    X(double, number, keys, "key")                                                                                     \
+    X(double, number, star, "stars", "sr")                                                                             \
+    X(double, number, bpm)                                                                                             \
+    X(double, number, length)                                                                                          \
+    X(double, number, drain)                                                                                           \
+    X(int32_t, enum_list, mode)                                                                                        \
+    X(int32_t, enum_list, status)                                                                                      \
+    X(double, number, played)                                                                                          \
+    X(bool, flag, unplayed)                                                                                            \
+    X(double, number, speed)                                                                                           \
+    X(std::string_view, text, source)                                                                                  \
+    X(std::string_view, text, tags, "tag")
+
+#define OSU_QUERY_OPERATOR_LIST(X)                                                                                     \
+    X("!=", ne)                                                                                                        \
+    X("!:", not_contains)                                                                                              \
+    X("!~", not_contains)                                                                                              \
+    X(">=", gte)                                                                                                       \
+    X("<=", lte)                                                                                                       \
+    X("==", eq)                                                                                                        \
+    X("^=", starts_with)                                                                                               \
+    X("$=", ends_with)                                                                                                 \
+    X("~=", contains)                                                                                                  \
+    X("=", eq)                                                                                                         \
+    X(":", contains)                                                                                                   \
+    X(">", gt)                                                                                                         \
+    X("<", lt)
+
+#define OSU_TEXT_QUERY_ACCESSORS(X)                                                                                    \
+    X(artist, beatmap.artist)                                                                                          \
+    X(creator, beatmap.creator)                                                                                        \
+    X(title, beatmap.title)                                                                                            \
+    X(difficulty, beatmap.difficulty)                                                                                  \
+    X(source, beatmap.source)                                                                                          \
+    X(tags, beatmap.tags)
+
+#define OSU_NUMBER_QUERY_ACCESSORS(X)                                                                                  \
+    X(ar, beatmap.approach_rate)                                                                                       \
+    X(cs, beatmap.circle_size)                                                                                         \
+    X(od, beatmap.overall_difficulty)                                                                                  \
+    X(hp, beatmap.hp_drain)                                                                                            \
+    X(keys, beatmap.circle_size)                                                                                       \
+    X(drain, static_cast<double>(beatmap.drain_time))                                                                  \
+    X(speed, static_cast<double>(beatmap.mania_scroll_speed))                                                          \
+    X(star, get_star_rating_for_mode(beatmap))                                                                         \
+    X(bpm, get_common_bpm(beatmap.timing_points, beatmap.total_time))                                                  \
+    X(length, static_cast<double>(beatmap.total_time) / 1000.0)
+
+#define OSU_TEXT_SORT_ACCESSORS(X)                                                                                     \
+    X(artist, to_lower_copy(beatmap.artist))                                                                           \
+    X(title, to_lower_copy(beatmap.title))                                                                             \
+    X(creator, to_lower_copy(beatmap.creator))                                                                         \
+    X(difficulty, to_lower_copy(beatmap.difficulty))                                                                   \
+    X(source, to_lower_copy(beatmap.source))                                                                           \
+    X(tags, to_lower_copy(beatmap.tags))                                                                               \
+    X(folder_name, to_lower_copy(beatmap.folder_name))                                                                 \
+    X(audio_file_name, to_lower_copy(beatmap.audio_file_name))                                                         \
+    X(osu_file_name, to_lower_copy(beatmap.osu_file_name))
+
+#define OSU_NUMBER_SORT_ACCESSORS(X)                                                                                   \
+    X(star, get_star_rating_for_mode(beatmap))                                                                         \
+    X(bpm, get_common_bpm(beatmap.timing_points, beatmap.total_time))                                                  \
+    X(ar, beatmap.approach_rate)                                                                                       \
+    X(cs, beatmap.circle_size)                                                                                         \
+    X(od, beatmap.overall_difficulty)                                                                                  \
+    X(hp, beatmap.hp_drain)                                                                                            \
+    X(length, static_cast<double>(beatmap.total_time) / 1000.0)                                                        \
+    X(drain_time, static_cast<double>(beatmap.drain_time))                                                             \
+    X(total_time, static_cast<double>(beatmap.total_time))                                                             \
+    X(audio_preview_time, static_cast<double>(beatmap.audio_preview_time))                                             \
+    X(mode, static_cast<double>(beatmap.mode))                                                                         \
+    X(ranked_status, static_cast<double>(beatmap.ranked_status))                                                       \
+    X(beatmap_id, static_cast<double>(beatmap.beatmap_id))                                                             \
+    X(difficulty_id, static_cast<double>(beatmap.difficulty_id))                                                       \
+    X(thread_id, static_cast<double>(beatmap.thread_id))                                                               \
+    X(last_played, static_cast<double>(beatmap.last_played))                                                           \
+    X(last_checked, static_cast<double>(beatmap.last_checked))                                                         \
+    X(last_modified, static_cast<double>(beatmap.last_modified))                                                       \
+    X(last_modification_time, static_cast<double>(beatmap.last_modification_time))                                     \
+    X(mania_scroll_speed, static_cast<double>(beatmap.mania_scroll_speed))                                             \
+    X(sliders, static_cast<double>(beatmap.sliders))                                                                   \
+    X(spinners, static_cast<double>(beatmap.spinners))                                                                 \
+    X(hitcircle, static_cast<double>(beatmap.hitcircle))
 
 namespace osu_filter {
+    enum class query_field_kind { text, number, enum_list, flag };
+
+    enum class sort_field_key {
+        unknown,
+        artist,
+        title,
+        creator,
+        difficulty,
+        source,
+        tags,
+        folder_name,
+        audio_file_name,
+        osu_file_name,
+        star,
+        bpm,
+        duration,
+        ar,
+        cs,
+        od,
+        hp,
+        length,
+        drain_time,
+        total_time,
+        audio_preview_time,
+        mode,
+        ranked_status,
+        beatmap_id,
+        difficulty_id,
+        thread_id,
+        last_played,
+        last_checked,
+        last_modified,
+        last_modification_time,
+        mania_scroll_speed,
+        sliders,
+        spinners,
+        hitcircle
+    };
+
+    static constexpr query_field_kind get_query_field_kind(query_field field) {
+        switch (field) {
+#define FIELD_KIND_CASE(field_value_type, field_kind, field_name, ...)                                                 \
+    case query_field::field_name:                                                                                      \
+        return query_field_kind::field_kind;
+            OSU_QUERY_FIELD_LIST(FIELD_KIND_CASE)
+#undef FIELD_KIND_CASE
+        }
+        return query_field_kind::number;
+    }
+
     std::string to_lower_copy(std::string_view value) {
         std::string out(value);
         std::transform(out.begin(), out.end(), out.begin(),
@@ -17,29 +161,72 @@ namespace osu_filter {
         return out;
     }
 
-    static query_op parse_operator(const std::string& raw) {
-        if (raw == "!=" || raw == "!:") {
-            return query_op::ne;
+    struct operator_entry {
+        std::string_view text;
+        query_op op;
+    };
+
+    static bool match_query_operator(std::string_view query, size_t index, query_op& out_op, size_t& out_len) {
+        static const operator_entry OPS[] = {
+#define OP_ENTRY(token, op_name) {token, query_op::op_name},
+            OSU_QUERY_OPERATOR_LIST(OP_ENTRY)
+#undef OP_ENTRY
+        };
+
+        for (const auto& entry : OPS) {
+            if (index + entry.text.size() <= query.size() && query.compare(index, entry.text.size(), entry.text) == 0) {
+                out_op = entry.op;
+                out_len = entry.text.size();
+                return true;
+            }
         }
-        if (raw == "<") {
-            return query_op::lt;
+        return false;
+    }
+
+    static bool is_numeric_operator(query_op op) {
+        return op == query_op::eq || op == query_op::ne || op == query_op::lt || op == query_op::lte ||
+               op == query_op::gt || op == query_op::gte;
+    }
+
+    static bool is_text_operator(query_op op) {
+        return op == query_op::eq || op == query_op::ne || op == query_op::contains || op == query_op::not_contains ||
+               op == query_op::starts_with || op == query_op::ends_with;
+    }
+
+    static bool is_operator_supported(query_field field, query_op op) {
+        const query_field_kind kind = get_query_field_kind(field);
+        if (kind == query_field_kind::number) {
+            return is_numeric_operator(op);
         }
-        if (raw == "<=") {
-            return query_op::lte;
+        if (kind == query_field_kind::text) {
+            return is_text_operator(op);
         }
-        if (raw == ">") {
-            return query_op::gt;
+        if (kind == query_field_kind::enum_list) {
+            return op == query_op::eq || op == query_op::ne;
         }
-        if (raw == ">=") {
-            return query_op::gte;
-        }
-        return query_op::eq;
+        return op == query_op::eq || op == query_op::ne;
     }
 
     static bool parse_numeric(const std::string& value, double& out_number) {
-        char* end = nullptr;
-        out_number = std::strtod(value.c_str(), &end);
-        return end != value.c_str() && *end == '\0' && std::isfinite(out_number);
+        const char* begin = value.data();
+        const char* end = value.data() + value.size();
+        auto result = std::from_chars(begin, end, out_number);
+        if (result.ec != std::errc() || result.ptr != end) {
+            return false;
+        }
+        return std::isfinite(out_number);
+    }
+
+    static std::string trim_copy(std::string_view value) {
+        size_t start = 0;
+        size_t end = value.size();
+        while (start < end && std::isspace(static_cast<unsigned char>(value[start]))) {
+            start++;
+        }
+        while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1]))) {
+            end--;
+        }
+        return std::string(value.substr(start, end - start));
     }
 
     static std::vector<std::string> split_csv(std::string_view value) {
@@ -47,16 +234,18 @@ namespace osu_filter {
         std::string current;
         for (char c : value) {
             if (c == ',') {
-                if (!current.empty()) {
-                    parts.push_back(std::move(current));
-                    current.clear();
+                std::string trimmed = trim_copy(current);
+                if (!trimmed.empty()) {
+                    parts.push_back(std::move(trimmed));
                 }
+                current.clear();
             } else {
                 current.push_back(c);
             }
         }
-        if (!current.empty()) {
-            parts.push_back(std::move(current));
+        std::string trimmed = trim_copy(current);
+        if (!trimmed.empty()) {
+            parts.push_back(std::move(trimmed));
         }
         return parts;
     }
@@ -95,51 +284,44 @@ namespace osu_filter {
         return true;
     }
 
-    static std::optional<query_field> parse_key(const std::string& raw_key) {
+    static void register_aliases(std::unordered_map<std::string, query_field>& map, query_field field,
+                                 std::initializer_list<std::string_view> aliases) {
+        for (const std::string_view alias : aliases) {
+            if (!alias.empty()) {
+                map.emplace(std::string(alias), field);
+            }
+        }
+    }
+
+    static std::optional<query_field> parse_query_field(const std::string& raw_key) {
         const std::string key = to_lower_copy(raw_key);
-
-        if (key == "artist")
-            return query_field::artist;
-        if (key == "creator" || key == "author" || key == "mapper")
-            return query_field::creator;
-        if (key == "title")
-            return query_field::title;
-        if (key == "difficulty" || key == "diff")
-            return query_field::difficulty;
-        if (key == "ar")
-            return query_field::ar;
-        if (key == "cs")
-            return query_field::cs;
-        if (key == "od")
-            return query_field::od;
-        if (key == "hp" || key == "dr")
-            return query_field::hp;
-        if (key == "key" || key == "keys")
-            return query_field::keys;
-        if (key == "star" || key == "stars" || key == "sr")
-            return query_field::star;
-        if (key == "bpm")
-            return query_field::bpm;
-        if (key == "length")
-            return query_field::length;
-        if (key == "drain")
-            return query_field::drain;
-        if (key == "mode")
-            return query_field::mode;
-        if (key == "status")
-            return query_field::status;
-        if (key == "played")
-            return query_field::played;
-        if (key == "unplayed")
-            return query_field::unplayed;
-        if (key == "speed")
-            return query_field::speed;
-        if (key == "source")
-            return query_field::source;
-        if (key == "tag" || key == "tags")
-            return query_field::tags;
-
+        static const std::unordered_map<std::string, query_field> FIELD_BY_ALIAS = [] {
+            std::unordered_map<std::string, query_field> map;
+            map.reserve(32);
+#define INSERT_QUERY_FIELD_ALIASES(field_value_type, field_kind, field_name, ...)                                      \
+    register_aliases(map, query_field::field_name, {#field_name, ##__VA_ARGS__});
+            OSU_QUERY_FIELD_LIST(INSERT_QUERY_FIELD_ALIASES)
+#undef INSERT_QUERY_FIELD_ALIASES
+            return map;
+        }();
+        auto it = FIELD_BY_ALIAS.find(key);
+        if (it != FIELD_BY_ALIAS.end()) {
+            return it->second;
+        }
         return std::nullopt;
+    }
+
+    static bool parse_bool_token(std::string_view value, bool& out_flag) {
+        const std::string lower = to_lower_copy(trim_copy(value));
+        if (lower == "1" || lower == "true" || lower == "yes") {
+            out_flag = true;
+            return true;
+        }
+        if (lower == "0" || lower == "false" || lower == "no") {
+            out_flag = false;
+            return true;
+        }
+        return false;
     }
 
     bool parse_query(const std::string& query, osu_db_filter_props& out, std::string& err) {
@@ -191,44 +373,14 @@ namespace osu_filter {
             }
 
             std::string key = query.substr(token_start, i - token_start);
-            std::string op;
 
-            auto peek = [&](const char* candidate) -> bool {
-                size_t c_len = std::strlen(candidate);
-                return i + c_len <= len && query.compare(i, c_len, candidate) == 0;
-            };
-
-            if (peek("==")) {
-                op = "==";
-                i += 2;
-            } else if (peek("!=")) {
-                op = "!=";
-                i += 2;
-            } else if (peek(">=")) {
-                op = ">=";
-                i += 2;
-            } else if (peek("<=")) {
-                op = "<=";
-                i += 2;
-            } else if (peek("!:")) {
-                op = "!:";
-                i += 2;
-            } else if (peek("=")) {
-                op = "=";
-                i += 1;
-            } else if (peek(":")) {
-                op = ":";
-                i += 1;
-            } else if (peek(">")) {
-                op = ">";
-                i += 1;
-            } else if (peek("<")) {
-                op = "<";
-                i += 1;
-            } else {
+            query_op parsed_op = query_op::eq;
+            size_t op_len = 0;
+            if (!match_query_operator(query, i, parsed_op, op_len)) {
                 push_text_tokens(key);
                 continue;
             }
+            i += op_len;
 
             while (i < len && std::isspace(static_cast<unsigned char>(query[i]))) {
                 i++;
@@ -253,7 +405,7 @@ namespace osu_filter {
                 value = query.substr(start, i - start);
             }
 
-            auto field = parse_key(key);
+            auto field = parse_query_field(key);
             if (!field.has_value()) {
                 if (!value.empty()) {
                     push_text_tokens(value);
@@ -267,23 +419,32 @@ namespace osu_filter {
 
             query_filter filter;
             filter.field = field.value();
-            filter.op = parse_operator(op);
+            filter.op = parsed_op;
+            if (!is_operator_supported(filter.field, filter.op)) {
+                err = "invalid operator for query field";
+                return false;
+            }
 
-            if (filter.field == query_field::mode) {
+            const query_field_kind kind = get_query_field_kind(filter.field);
+
+            if (kind == query_field_kind::enum_list && filter.field == query_field::mode) {
                 if (!parse_mode_token(value, filter.int_list, err)) {
                     return false;
                 }
-            } else if (filter.field == query_field::status) {
+            } else if (kind == query_field_kind::enum_list && filter.field == query_field::status) {
                 if (!parse_status_token(value, filter.int_list, err)) {
                     return false;
                 }
-            } else if (filter.field == query_field::unplayed) {
-                filter.flag = true;
-            } else if (filter.field == query_field::artist || filter.field == query_field::creator ||
-                       filter.field == query_field::title || filter.field == query_field::difficulty ||
-                       filter.field == query_field::source || filter.field == query_field::tags) {
+            } else if (kind == query_field_kind::flag) {
+                if (value.empty()) {
+                    filter.flag = true;
+                } else if (!parse_bool_token(value, filter.flag)) {
+                    err = "invalid boolean filter";
+                    return false;
+                }
+            } else if (kind == query_field_kind::text) {
                 filter.text = to_lower_copy(value);
-            } else {
+            } else if (kind == query_field_kind::number) {
                 double num = 0.0;
                 if (!parse_numeric(value, num)) {
                     err = "invalid numeric filter";
@@ -291,6 +452,9 @@ namespace osu_filter {
                 }
                 filter.number = num;
                 filter.has_number = true;
+            } else {
+                err = "invalid query field";
+                return false;
             }
 
             out.query_filters.push_back(std::move(filter));
@@ -382,12 +546,17 @@ namespace osu_filter {
         return best_bpm;
     }
 
-    static bool contains_case_insensitive(const std::string& haystack, const std::string& needle) {
+    static bool contains_case_insensitive(std::string_view haystack, std::string_view needle) {
         if (needle.empty()) {
             return true;
         }
-        std::string lower = to_lower_copy(haystack);
-        return lower.find(needle) != std::string::npos;
+        if (needle.size() > haystack.size()) {
+            return false;
+        }
+        return std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(), [](char left, char right) {
+                   return std::tolower(static_cast<unsigned char>(left)) ==
+                          std::tolower(static_cast<unsigned char>(right));
+               }) != haystack.end();
     }
 
     static bool compare_numeric(double value, double target, query_op op) {
@@ -404,18 +573,63 @@ namespace osu_filter {
                 return value > target;
             case query_op::gte:
                 return value >= target;
+            case query_op::contains:
+            case query_op::not_contains:
+            case query_op::starts_with:
+            case query_op::ends_with:
+                return false;
         }
         return false;
     }
 
-    static bool compare_text(const std::string& value, const std::string& target, query_op op) {
-        if (op == query_op::eq) {
-            return contains_case_insensitive(value, target);
+    static bool starts_with_case_insensitive(std::string_view value, std::string_view prefix) {
+        if (prefix.empty()) {
+            return true;
         }
-        if (op == query_op::ne) {
-            return !contains_case_insensitive(value, target);
+        if (prefix.size() > value.size()) {
+            return false;
         }
-        return false;
+        for (size_t i = 0; i < prefix.size(); i++) {
+            if (std::tolower(static_cast<unsigned char>(value[i])) !=
+                std::tolower(static_cast<unsigned char>(prefix[i]))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static bool ends_with_case_insensitive(std::string_view value, std::string_view suffix) {
+        if (suffix.empty()) {
+            return true;
+        }
+        if (suffix.size() > value.size()) {
+            return false;
+        }
+        const size_t offset = value.size() - suffix.size();
+        for (size_t i = 0; i < suffix.size(); i++) {
+            if (std::tolower(static_cast<unsigned char>(value[offset + i])) !=
+                std::tolower(static_cast<unsigned char>(suffix[i]))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static bool compare_text(std::string_view value, std::string_view target, query_op op) {
+        switch (op) {
+            case query_op::eq:
+            case query_op::contains:
+                return contains_case_insensitive(value, target);
+            case query_op::ne:
+            case query_op::not_contains:
+                return !contains_case_insensitive(value, target);
+            case query_op::starts_with:
+                return starts_with_case_insensitive(value, target);
+            case query_op::ends_with:
+                return ends_with_case_insensitive(value, target);
+            default:
+                return false;
+        }
     }
 
     static double ticks_to_days_since(int64_t ticks) {
@@ -435,88 +649,64 @@ namespace osu_filter {
         return (now_ms - unix_ms) / milliseconds_per_day;
     }
 
+    using text_field_fn = std::string_view (*)(const osu_db_beatmap&);
+    using num_field_fn = double (*)(const osu_db_beatmap&);
+
     static bool matches_query_filter(const osu_db_beatmap& beatmap, const query_filter& filter) {
+        static const std::unordered_map<query_field, text_field_fn> TEXT_DISPATCH = {
+#define X(name, expr) {query_field::name, [](const osu_db_beatmap& beatmap) -> std::string_view { return expr; }},
+            OSU_TEXT_QUERY_ACCESSORS(X)
+#undef X
+        };
+
+        static const std::unordered_map<query_field, num_field_fn> NUM_DISPATCH = {
+#define X(name, expr)                                                                                                  \
+    {query_field::name, [](const osu_db_beatmap& beatmap) -> double { return static_cast<double>(expr); }},
+            OSU_NUMBER_QUERY_ACCESSORS(X)
+#undef X
+        };
+
+        auto text_it = TEXT_DISPATCH.find(filter.field);
+        if (text_it != TEXT_DISPATCH.end()) {
+            return compare_text(text_it->second(beatmap), filter.text, filter.op);
+        }
+
+        auto num_it = NUM_DISPATCH.find(filter.field);
+        if (num_it != NUM_DISPATCH.end()) {
+            return filter.has_number && compare_numeric(num_it->second(beatmap), filter.number, filter.op);
+        }
+
         switch (filter.field) {
-            case query_field::artist:
-                return compare_text(beatmap.artist, filter.text, filter.op);
-            case query_field::creator:
-                return compare_text(beatmap.creator, filter.text, filter.op);
-            case query_field::title:
-                return compare_text(beatmap.title, filter.text, filter.op);
-            case query_field::difficulty:
-                return compare_text(beatmap.difficulty, filter.text, filter.op);
-            case query_field::source:
-                return compare_text(beatmap.source, filter.text, filter.op);
-            case query_field::tags:
-                return compare_text(beatmap.tags, filter.text, filter.op);
-            case query_field::ar:
-                return filter.has_number && compare_numeric(beatmap.approach_rate, filter.number, filter.op);
-            case query_field::cs:
-                return filter.has_number && compare_numeric(beatmap.circle_size, filter.number, filter.op);
-            case query_field::od:
-                return filter.has_number && compare_numeric(beatmap.overall_difficulty, filter.number, filter.op);
-            case query_field::hp:
-                return filter.has_number && compare_numeric(beatmap.hp_drain, filter.number, filter.op);
-            case query_field::keys:
-                return filter.has_number && compare_numeric(beatmap.circle_size, filter.number, filter.op);
-            case query_field::star: {
-                if (!filter.has_number) {
-                    return false;
-                }
-                const double sr = get_star_rating_for_mode(beatmap);
-                return compare_numeric(sr, filter.number, filter.op);
-            }
-            case query_field::bpm: {
-                if (!filter.has_number) {
-                    return false;
-                }
-                const double bpm = get_common_bpm(beatmap.timing_points, beatmap.total_time);
-                return compare_numeric(bpm, filter.number, filter.op);
-            }
-            case query_field::length: {
-                if (!filter.has_number) {
-                    return false;
-                }
-                const double length = static_cast<double>(beatmap.total_time) / 1000.0;
-                return compare_numeric(length, filter.number, filter.op);
-            }
-            case query_field::drain:
-                return filter.has_number &&
-                       compare_numeric(static_cast<double>(beatmap.drain_time), filter.number, filter.op);
-            case query_field::mode: {
-                if (filter.int_list.empty()) {
-                    return false;
-                }
-                const bool in_list_result = in_list(filter.int_list, beatmap.mode);
-                return filter.op == query_op::ne ? !in_list_result : in_list_result;
-            }
-            case query_field::status: {
-                if (filter.int_list.empty()) {
-                    return false;
-                }
-                const bool in_list_result = in_list(filter.int_list, beatmap.ranked_status);
-                return filter.op == query_op::ne ? !in_list_result : in_list_result;
-            }
             case query_field::played: {
                 if (!filter.has_number) {
                     return false;
                 }
                 const double days = ticks_to_days_since(beatmap.last_played);
-                if (days < 0.0) {
+                return days >= 0.0 && compare_numeric(days, filter.number, filter.op);
+            }
+            case query_field::mode:
+            case query_field::status: {
+                if (filter.int_list.empty()) {
                     return false;
                 }
-                return compare_numeric(days, filter.number, filter.op);
+                const int32_t value = filter.field == query_field::mode ? beatmap.mode : beatmap.ranked_status;
+                const bool matched = in_list(filter.int_list, value);
+                return filter.op == query_op::ne ? !matched : matched;
             }
             case query_field::unplayed: {
                 const bool is_unplayed = beatmap.unplayed != 0 || beatmap.last_played <= 0;
-                return is_unplayed;
+                return filter.op == query_op::ne ? (is_unplayed != filter.flag) : (is_unplayed == filter.flag);
             }
-            case query_field::speed:
-                return filter.has_number &&
-                       compare_numeric(static_cast<double>(beatmap.mania_scroll_speed), filter.number, filter.op);
+            default:
+                return false;
         }
+    }
 
-        return false;
+    static bool matches_default_text_token(const osu_db_beatmap& beatmap, const std::string& token) {
+        return contains_case_insensitive(beatmap.artist, token) || contains_case_insensitive(beatmap.creator, token) ||
+               contains_case_insensitive(beatmap.title, token) ||
+               contains_case_insensitive(beatmap.difficulty, token) ||
+               contains_case_insensitive(beatmap.source, token) || contains_case_insensitive(beatmap.tags, token);
     }
 
     bool matches_filter(const osu_db_beatmap& beatmap, const osu_db_filter_props& props) {
@@ -569,21 +759,8 @@ namespace osu_filter {
             }
 
             if (!props.query_text_tokens.empty()) {
-                std::string combined = beatmap.artist;
-                combined.append(" ")
-                    .append(beatmap.title)
-                    .append(" ")
-                    .append(beatmap.creator)
-                    .append(" ")
-                    .append(beatmap.difficulty)
-                    .append(" ")
-                    .append(beatmap.source)
-                    .append(" ")
-                    .append(beatmap.tags);
-                std::string combined_lower = to_lower_copy(combined);
-
                 for (const auto& token : props.query_text_tokens) {
-                    if (combined_lower.find(token) == std::string::npos) {
+                    if (!matches_default_text_token(beatmap, token)) {
                         return false;
                     }
                 }
@@ -639,116 +816,94 @@ namespace osu_filter {
         bool has_number = false;
     };
 
-    static sort_key_value build_sort_key(const osu_db_beatmap& beatmap, const std::string& key) {
+    static sort_field_key parse_sort_field(std::string_view key) {
+        static const std::unordered_map<std::string, sort_field_key> SORT_FIELD_BY_KEY = [] {
+            std::unordered_map<std::string, sort_field_key> map;
+            map.reserve(40);
+            map.emplace("artist", sort_field_key::artist);
+            map.emplace("title", sort_field_key::title);
+            map.emplace("creator", sort_field_key::creator);
+            map.emplace("difficulty", sort_field_key::difficulty);
+            map.emplace("source", sort_field_key::source);
+            map.emplace("tags", sort_field_key::tags);
+            map.emplace("folder_name", sort_field_key::folder_name);
+            map.emplace("audio_file_name", sort_field_key::audio_file_name);
+            map.emplace("osu_file_name", sort_field_key::osu_file_name);
+            map.emplace("star", sort_field_key::star);
+            map.emplace("bpm", sort_field_key::bpm);
+            map.emplace("duration", sort_field_key::duration);
+            map.emplace("ar", sort_field_key::ar);
+            map.emplace("cs", sort_field_key::cs);
+            map.emplace("od", sort_field_key::od);
+            map.emplace("hp", sort_field_key::hp);
+            map.emplace("length", sort_field_key::length);
+            map.emplace("drain_time", sort_field_key::drain_time);
+            map.emplace("total_time", sort_field_key::total_time);
+            map.emplace("audio_preview_time", sort_field_key::audio_preview_time);
+            map.emplace("mode", sort_field_key::mode);
+            map.emplace("ranked_status", sort_field_key::ranked_status);
+            map.emplace("beatmap_id", sort_field_key::beatmap_id);
+            map.emplace("difficulty_id", sort_field_key::difficulty_id);
+            map.emplace("thread_id", sort_field_key::thread_id);
+            map.emplace("last_played", sort_field_key::last_played);
+            map.emplace("last_checked", sort_field_key::last_checked);
+            map.emplace("last_modified", sort_field_key::last_modified);
+            map.emplace("last_modification_time", sort_field_key::last_modification_time);
+            map.emplace("mania_scroll_speed", sort_field_key::mania_scroll_speed);
+            map.emplace("sliders", sort_field_key::sliders);
+            map.emplace("spinners", sort_field_key::spinners);
+            map.emplace("hitcircle", sort_field_key::hitcircle);
+            return map;
+        }();
+        const std::string lower = to_lower_copy(key);
+        auto it = SORT_FIELD_BY_KEY.find(lower);
+        return it == SORT_FIELD_BY_KEY.end() ? sort_field_key::unknown : it->second;
+    }
+
+    using sort_text_fn = std::string (*)(const osu_db_beatmap&);
+    using sort_num_fn = double (*)(const osu_db_beatmap&);
+
+    static sort_key_value build_sort_key(const osu_db_beatmap& beatmap, sort_field_key field_key) {
+        static const std::unordered_map<sort_field_key, sort_text_fn> TEXT_SORT_DISPATCH = {
+#define X(name, expr) {sort_field_key::name, [](const osu_db_beatmap& beatmap) -> std::string { return expr; }},
+            OSU_TEXT_SORT_ACCESSORS(X)
+#undef X
+        };
+
+        static const std::unordered_map<sort_field_key, sort_num_fn> NUM_SORT_DISPATCH = {
+#define X(name, expr)                                                                                                  \
+    {sort_field_key::name, [](const osu_db_beatmap& beatmap) -> double { return static_cast<double>(expr); }},
+            OSU_NUMBER_SORT_ACCESSORS(X)
+#undef X
+        };
+
         sort_key_value out;
         out.beatmap = &beatmap;
-        const std::string lower = to_lower_copy(key);
 
-        if (lower == "artist") {
+        auto text_it = TEXT_SORT_DISPATCH.find(field_key);
+        if (text_it != TEXT_SORT_DISPATCH.end()) {
             out.is_string = true;
-            out.text = to_lower_copy(beatmap.artist);
-            return out;
-        }
-        if (lower == "title") {
-            out.is_string = true;
-            out.text = to_lower_copy(beatmap.title);
-            return out;
-        }
-        if (lower == "creator") {
-            out.is_string = true;
-            out.text = to_lower_copy(beatmap.creator);
-            return out;
-        }
-        if (lower == "difficulty") {
-            out.is_string = true;
-            out.text = to_lower_copy(beatmap.difficulty);
-            return out;
-        }
-        if (lower == "source") {
-            out.is_string = true;
-            out.text = to_lower_copy(beatmap.source);
-            return out;
-        }
-        if (lower == "tags") {
-            out.is_string = true;
-            out.text = to_lower_copy(beatmap.tags);
-            return out;
-        }
-        if (lower == "folder_name") {
-            out.is_string = true;
-            out.text = to_lower_copy(beatmap.folder_name);
-            return out;
-        }
-        if (lower == "audio_file_name") {
-            out.is_string = true;
-            out.text = to_lower_copy(beatmap.audio_file_name);
-            return out;
-        }
-        if (lower == "osu_file_name") {
-            out.is_string = true;
-            out.text = to_lower_copy(beatmap.osu_file_name);
+            out.text = text_it->second(beatmap);
             return out;
         }
 
-        out.is_string = false;
-        out.has_number = true;
-
-        if (lower == "ar") {
-            out.number = beatmap.approach_rate;
-        } else if (lower == "cs") {
-            out.number = beatmap.circle_size;
-        } else if (lower == "od") {
-            out.number = beatmap.overall_difficulty;
-        } else if (lower == "hp") {
-            out.number = beatmap.hp_drain;
-        } else if (lower == "star") {
-            out.number = get_star_rating_for_mode(beatmap);
-        } else if (lower == "bpm") {
-            out.number = get_common_bpm(beatmap.timing_points, beatmap.total_time);
-        } else if (lower == "length") {
-            out.number = static_cast<double>(beatmap.total_time) / 1000.0;
-        } else if (lower == "drain_time") {
-            out.number = static_cast<double>(beatmap.drain_time);
-        } else if (lower == "total_time") {
-            out.number = static_cast<double>(beatmap.total_time);
-        } else if (lower == "duration") {
-            if (beatmap.duration.has_value()) {
-                out.number = beatmap.duration.value();
-            } else {
-                out.has_number = false;
-            }
-        } else if (lower == "audio_preview_time") {
-            out.number = static_cast<double>(beatmap.audio_preview_time);
-        } else if (lower == "mode") {
-            out.number = static_cast<double>(beatmap.mode);
-        } else if (lower == "ranked_status") {
-            out.number = static_cast<double>(beatmap.ranked_status);
-        } else if (lower == "beatmap_id") {
-            out.number = static_cast<double>(beatmap.beatmap_id);
-        } else if (lower == "difficulty_id") {
-            out.number = static_cast<double>(beatmap.difficulty_id);
-        } else if (lower == "thread_id") {
-            out.number = static_cast<double>(beatmap.thread_id);
-        } else if (lower == "last_played") {
-            out.number = static_cast<double>(beatmap.last_played);
-        } else if (lower == "last_checked") {
-            out.number = static_cast<double>(beatmap.last_checked);
-        } else if (lower == "last_modified") {
-            out.number = static_cast<double>(beatmap.last_modified);
-        } else if (lower == "last_modification_time") {
-            out.number = static_cast<double>(beatmap.last_modification_time);
-        } else if (lower == "mania_scroll_speed") {
-            out.number = static_cast<double>(beatmap.mania_scroll_speed);
-        } else if (lower == "sliders") {
-            out.number = static_cast<double>(beatmap.sliders);
-        } else if (lower == "spinners") {
-            out.number = static_cast<double>(beatmap.spinners);
-        } else if (lower == "hitcircle") {
-            out.number = static_cast<double>(beatmap.hitcircle);
-        } else {
-            out.has_number = false;
+        auto num_it = NUM_SORT_DISPATCH.find(field_key);
+        if (num_it != NUM_SORT_DISPATCH.end()) {
+            out.is_string = false;
+            out.has_number = true;
+            out.number = num_it->second(beatmap);
+            return out;
         }
 
+        // duration is optional so it cant go in the macro table
+        if (field_key == sort_field_key::duration) {
+            out.is_string = false;
+            out.has_number = beatmap.duration.has_value();
+            out.number = out.has_number ? beatmap.duration.value() : 0.0;
+            return out;
+        }
+
+        out.has_number = false;
         return out;
     }
 
@@ -757,10 +912,15 @@ namespace osu_filter {
             return;
         }
 
+        const sort_field_key field_key = parse_sort_field(props.sort_key);
+        if (field_key == sort_field_key::unknown) {
+            return;
+        }
+
         std::vector<sort_key_value> keys;
         keys.reserve(matches.size());
         for (const auto* beatmap : matches) {
-            keys.push_back(build_sort_key(*beatmap, props.sort_key));
+            keys.push_back(build_sort_key(*beatmap, field_key));
         }
 
         const bool desc = props.sort_desc;

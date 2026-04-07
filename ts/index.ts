@@ -220,15 +220,6 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
         return fn(this.handle) as Omit<OsuLegacyDatabase, "beatmaps">;
     }
 
-    get_beatmaps_range(start: number, count: number): OsuDbBeatmap[] {
-        this.assert_handle();
-        const fn = this.fns.get_beatmaps_range;
-        if (!fn) {
-            throw new Error(`${this.prefix}.get_beatmaps_range not implemented`);
-        }
-        return fn(this.handle, start, count) as OsuDbBeatmap[];
-    }
-
     get_minimal_list(): OsuDbBeatmapMinimal[] {
         this.assert_handle();
         const fn = this.fns.get_minimal_list;
@@ -238,73 +229,12 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
         return fn(this.handle) as OsuDbBeatmapMinimal[];
     }
 
-    get_by_md5(md5: string): OsuDbBeatmap | undefined {
-        this.assert_handle();
-        const fn = this.fns.get_by_md5;
-        if (!fn) {
-            throw new Error(`${this.prefix}.get_by_md5 not implemented`);
-        }
-        return fn(this.handle, md5) as OsuDbBeatmap | undefined;
-    }
-
-    get_minimal_by_md5(md5: string) {
-        this.assert_handle();
-        const fn = this.fns.get_minimal_by_md5;
-        if (!fn) {
-            throw new Error(`${this.prefix}.get_minimal_by_md5 not implemented`);
-        }
-        return fn(this.handle, md5) as OsuDbBeatmapMinimal | undefined;
-    }
-
-    get_by_beatmapset_id(beatmapset_id: number): OsuDbBeatmap[] {
-        this.assert_handle();
-        const fn = this.fns.get_by_beatmapset_id;
-        if (!fn) {
-            throw new Error(`${this.prefix}.get_by_beatmapset_id not implemented`);
-        }
-        return fn(this.handle, beatmapset_id) as OsuDbBeatmap[];
-    }
-
-    get_by_difficulty_id(difficulty_id: number): OsuDbBeatmap | undefined {
-        this.assert_handle();
-        const fn = this.fns.get_by_difficulty_id;
-        if (!fn) {
-            throw new Error(`${this.prefix}.get_by_difficulty_id not implemented`);
-        }
-        return fn(this.handle, difficulty_id) as OsuDbBeatmap | undefined;
-    }
-
     filter_by_properties(properties: OsuDbFilterProperties) {
         this.assert_handle();
         if (!this.fns.filter_by_properties) {
             throw new Error(`${this.prefix}.filter_by_properties not implemented`);
         }
         return this.fns.filter_by_properties(this.handle, properties) as OsuDbBeatmap[];
-    }
-
-    filter_md5_by_properties(properties: OsuDbFilterProperties): string[] {
-        this.assert_handle();
-        if (!this.fns.filter_md5_by_properties) {
-            throw new Error(`${this.prefix}.filter_md5_by_properties not implemented`);
-        }
-        return this.fns.filter_md5_by_properties(this.handle, properties);
-    }
-
-    filter_ids_by_properties(properties: OsuDbFilterProperties): number[] {
-        this.assert_handle();
-        if (!this.fns.filter_ids_by_properties) {
-            throw new Error(`${this.prefix}.filter_ids_by_properties not implemented`);
-        }
-        return this.fns.filter_ids_by_properties(this.handle, properties);
-    }
-
-    update_duration(updates: { md5: string; duration?: number | null }[]): boolean {
-        this.assert_handle();
-        const fn = this.fns.update_duration;
-        if (!fn) {
-            throw new Error(`${this.prefix}.update_duration not implemented`);
-        }
-        return fn(this.handle, updates);
     }
 }
 

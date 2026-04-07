@@ -493,18 +493,9 @@ export interface NativeBindings {
     osu_db_parser_last_error(handle: bigint): string | null;
     osu_db_parser_get(handle: bigint): OsuLegacyDatabase;
     osu_db_parser_get_header(handle: bigint): Omit<OsuLegacyDatabase, "beatmaps">;
-    osu_db_parser_get_beatmaps_range(handle: bigint, start: number, count: number): OsuDbBeatmap[];
     osu_db_parser_get_minimal_list(handle: bigint): OsuDbBeatmapMinimal[];
-    osu_db_parser_get_by_md5(handle: bigint, md5: string): OsuDbBeatmap | undefined;
-    osu_db_parser_get_minimal_by_md5(handle: bigint, md5: string): OsuDbBeatmapMinimal | undefined;
-    osu_db_parser_get_by_beatmapset_id(handle: bigint, beatmapset_id: number): OsuDbBeatmap[];
-    osu_db_parser_get_by_difficulty_id(handle: bigint, difficulty_id: number): OsuDbBeatmap | undefined;
     osu_db_parser_update(handle: bigint, patch: OsuDbUpdate): boolean;
-    osu_db_parser_update_duration(handle: bigint, updates: { md5: string; duration?: number | null }[]): boolean;
-    osu_db_parser_get_by_name(handle: bigint, key: OsuDbKey): unknown;
     osu_db_parser_filter_by_properties(handle: bigint, properties: OsuDbFilterProperties): OsuDbBeatmap[];
-    osu_db_parser_filter_md5_by_properties(handle: bigint, properties: OsuDbFilterProperties): string[];
-    osu_db_parser_filter_ids_by_properties(handle: bigint, properties: OsuDbFilterProperties): number[];
 
     create_osu_collection_db_parser(): bigint;
     free_osu_collection_db_parser(handle: bigint): void;
