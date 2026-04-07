@@ -1,6 +1,19 @@
 cmake_minimum_required(VERSION 3.16)
 
-if(WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND DEFINED ENV{CMAKE_TOOLCHAIN_FILE})
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{CMAKE_TOOLCHAIN_FILE}" CACHE FILEPATH "Toolchain file" FORCE)
+endif()
+
+if(WIN32)
+    if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+        if(EXISTS "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake")
+            set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake")
+        elseif(EXISTS "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
+            set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
+        endif()
+    endif()
+    set(VCPKG_TARGET_TRIPLET "x64-windows-static")
+
     set(CMAKE_C_COMPILER "C:/Program Files/LLVM/bin/clang-cl.exe")
     set(CMAKE_CXX_COMPILER "C:/Program Files/LLVM/bin/clang-cl.exe")
     set(CMAKE_LINKER "C:/Program Files/LLVM/bin/lld-link.exe")
@@ -45,7 +58,7 @@ if(WIN32)
     target_link_libraries(osu_parser delayimp.lib)
 endif()
 
-if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
     target_compile_options(osu_parser PRIVATE /EHsc)
 endif()
 

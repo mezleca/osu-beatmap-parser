@@ -1,17 +1,10 @@
 #include "audio.hpp"
 
-#ifdef OSU_PARSER_HAS_SNDFILE
 #include <sndfile.h>
-#endif
 
 #include <filesystem>
 
 double get_audio_duration_seconds(const std::string& beatmap_location, const std::string& audio_filename) {
-#ifndef OSU_PARSER_HAS_SNDFILE
-    (void)beatmap_location;
-    (void)audio_filename;
-    return 0.0;
-#else
     if (beatmap_location.empty() || audio_filename.empty()) {
         return 0.0;
     }
@@ -36,5 +29,4 @@ double get_audio_duration_seconds(const std::string& beatmap_location, const std
         info.frames > 0 && info.samplerate > 0 ? static_cast<double>(info.frames) / info.samplerate : 0.0;
     sf_close(snd);
     return duration;
-#endif
 }
